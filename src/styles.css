@@ -2,24 +2,11 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== Fix date input icon on dark mode ===== */
+/* ===== Hide native date icon (macOS dark mode fix) ===== */
 input[type="date"] {
   color-scheme: dark;
 }
 
-/* Chrome / Safari */
-input[type="date"]::-webkit-calendar-picker-indicator {
-  opacity: 0.85;
-  filter: invert(1) brightness(1.2);
-  cursor: pointer;
-}
-
-/* Firefox */
-input[type="date"]::-moz-focus-inner {
-  border: 0;
-}
-
-/* Hide native date icon (macOS dark mode fix) */
 input[type="date"]::-webkit-calendar-picker-indicator {
   opacity: 0;
   position: absolute;

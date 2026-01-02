@@ -6,15 +6,12 @@ export default function AppLayout({ children }) {
   const [search, setSearch] = useState("");
 
   return (
-    <div className="flex min-h-screen flex-col bg-bg text-white">
+    <div className="min-h-screen bg-bg text-white">
       <TopBar search={search} onSearchChange={setSearch} />
 
-      <main className="flex-1 overflow-y-auto px-4 py-6 pb-24">
-        <div className="mx-auto w-full max-w-3xl">
-          {typeof children === "function"
-            ? children(search)
-            : children}
-        </div>
+      {/* 👇 CONTAINER CHỐNG TRÀN */}
+      <main className="mx-auto w-full max-w-3xl px-4 py-4">
+        {children}
       </main>
 
       <BottomNav />
