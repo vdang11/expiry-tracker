@@ -8,6 +8,11 @@ export default function Notifications() {
     api.getNotifications().then(setList);
   }, []);
 
+   async function handleClear() {
+    await api.clearNotifications();
+    setList([]);
+  }
+
   return (
     <div className="space-y-4">
       <h2 className="text-xl font-semibold">Notifications</h2>
@@ -26,6 +31,14 @@ export default function Notifications() {
           Không có thông báo
         </div>
       )}
+        <div className="flex gap-2">
+        <button
+          onClick={handleClear}
+          className="flex-1 rounded-xl border border-red-400/40 bg-card px-4 py-2 text-sm font-semibold text-red-300"
+        >
+          Clear
+        </button>
+      </div>
     </div>
   );
 }
