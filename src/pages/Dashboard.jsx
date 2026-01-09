@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../data/mockApi";
+import { useOutletContext } from "react-router-dom";
 
-export default function Dashboard({ search = "" }) {
+export default function Dashboard() {
+  const { search } = useOutletContext();
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
-  const [filter, setFilter] = useState("all"); // all | expired | soon | ok
+  const [filter, setFilter] = useState("all"); 
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {

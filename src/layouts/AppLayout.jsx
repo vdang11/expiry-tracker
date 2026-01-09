@@ -1,6 +1,7 @@
 import { useState } from "react";
 import TopBar from "../components/TopBar";
 import BottomNav from "../components/BottomNav";
+import { Outlet } from "react-router-dom";
 
 export default function AppLayout({ children }) {
   const [search, setSearch] = useState("");
@@ -11,7 +12,7 @@ export default function AppLayout({ children }) {
 
       {/* 👇 CONTAINER CHỐNG TRÀN */}
       <main className="mx-auto w-full max-w-3xl px-4 py-4">
-        {children}
+        <Outlet context={{ search }} />
       </main>
 
       <BottomNav />

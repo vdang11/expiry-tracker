@@ -11,59 +11,15 @@ import Profile from "./pages/Profile";
 export default function App() {
   return (
     <Routes>
-      <Route
-        path="/"
-        element={
-          <AppLayout>
-            <Dashboard />
-          </AppLayout>
-        }
-      />
-
-      <Route
-        path="/menu"
-        element={
-          <AppLayout>
-            <MenuSuggestions />
-          </AppLayout>
-        }
-      />
-
-      <Route
-        path="/add"
-        element={
-          <AppLayout>
-            <AddItem />
-          </AppLayout>
-        }
-      />
-
-      <Route
-        path="/items/:id"
-        element={
-          <AppLayout>
-            <ItemDetail />
-          </AppLayout>
-        }
-      />
-
-      <Route
-        path="/notifications"
-        element={
-          <AppLayout>
-            <Notifications />
-          </AppLayout>
-        }
-      />
-
-      <Route
-        path="/profile"
-        element={
-          <AppLayout>
-            <Profile />
-          </AppLayout>
-        }
-      />
+      <Route element={<AppLayout />}>
+        <Route index element={<Dashboard />} />
+        <Route path="menu" element={<MenuSuggestions />} />
+        <Route path="add" element={<AddItem />} />
+        <Route path="items/:id" element={<ItemDetail />} />
+        <Route path="notifications" element={<Notifications />} />
+        <Route path="profile" element={<Profile />} />
+      </Route>
     </Routes>
+
   );
 }
