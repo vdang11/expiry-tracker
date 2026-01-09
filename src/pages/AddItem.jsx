@@ -19,31 +19,60 @@ export default function AddItem() {
   // scan mock
   const [detecting, setDetecting] = useState(false);
 
-  async function handleSave() {
-    if (!name.trim()) {
-      alert("Please enter food name");
-      return;
-    }
-
-    if (!purchaseDate) {
-      alert("Please select purchase date");
-      return;
-    }
-
-    await api.createItem({
-      name,
-      purchaseDate,
-      expiryDate: expiryDate || null,
-      estimatedExpiryDate: null,
-      quantity,
-      unit,
-      category: "OTHER",
-      storageType: "FRIDGE",
-      source: mode === "scan" ? "scan" : "manual",
-    });
-
-    navigate("/");
+    // yyyy-mm-dd in local time (safe for <input type="date">)
+  function todayISO() {
+    const now = new Date();
+    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+    return local.toISOString().slice(0, 10);
   }
+
+  const today = todayISO();
+
+  async function handleSave() {
+  const trimmedName = name.trim();
+  if (!trimmedName) {
+    alert("Please enter food name");
+    return;
+  }
+
+  if (!purchaseDate) {
+    alert("Please select purchase date");
+    return;
+  }
+
+  // rule 1: purchase date must NOT be in the future
+  if (purchaseDate > today) {
+    alert("Purchase date cannot be in the future.");
+    return;
+  }
+
+  // rule 2: expiry date must NOT be in the past (if provided)
+  if (expiryDate && expiryDate < today) {
+    alert("Expiry date cannot be in the past.");
+    return;
+  }
+
+  // optional: expiry should not be before purchase
+  if (expiryDate && expiryDate < purchaseDate) {
+    alert("Expiry date cannot be earlier than purchase date.");
+    return;
+  }
+
+  await api.createItem({
+    name: trimmedName,
+    purchaseDate,
+    expiryDate: expiryDate || null,
+    estimatedExpiryDate: null,
+    quantity,
+    unit,
+    category: "OTHER",
+    storageType: "FRIDGE",
+    source: mode === "scan" ? "scan" : "manual",
+  });
+
+  navigate("/");
+}
+
 
   // mock scan (sau này thay bằng OCR backend)
   function handleScan() {
@@ -104,6 +133,7 @@ export default function AddItem() {
               <input
                 type="date"
                 value={purchaseDate}
+                max={today}
                 onChange={(e) => setPurchaseDate(e.target.value)}
                 className="w-full rounded-xl border border-line bg-bg px-3 py-2 pr-10 text-sm"
               />
@@ -117,6 +147,7 @@ export default function AddItem() {
               <input
                 type="date"
                 value={expiryDate}
+                min={today}
                 onChange={(e) => setExpiryDate(e.target.value)}
                 className="w-full rounded-xl border border-line bg-bg px-3 py-2 pr-10 text-sm"
               />
