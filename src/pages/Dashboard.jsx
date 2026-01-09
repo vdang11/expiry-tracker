@@ -217,6 +217,14 @@ function StatusBadge({ status, daysLeft }) {
     );
   }
 
+  if (status === "CONSUMED") {
+    return (
+      <span className="rounded-full border border-red-400/40 px-2 py-1 text-xs text-red-300">
+        Consumed
+      </span>
+    );
+  }
+
   return (
     <span className="rounded-full border border-line px-2 py-1 text-xs text-muted">
       OK
