@@ -2,13 +2,16 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../data/mockApi";
 import { useOutletContext } from "react-router-dom";
+import { LogOut } from "lucide-react";
 
 export default function Dashboard() {
   const { search } = useOutletContext();
   const navigate = useNavigate();
   const [items, setItems] = useState([]);
-  const [filter, setFilter] = useState("all"); 
+  const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+  const initials = currentUser.username[0].toUpperCase();
 
   useEffect(() => {
     let alive = true;
@@ -68,8 +71,11 @@ export default function Dashboard() {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold">Dashboard</h2>
+
+      {/* Top right user section */}
+      <div className="flex justify-between items-center p-2">
+        <h2 className="text-lg font-semibold">Expiry Overview</h2>
+
         <button
           onClick={() => navigate("/add")}
           className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-black"
@@ -77,7 +83,6 @@ export default function Dashboard() {
           + Add
         </button>
       </div>
-
       {/* 🧮 Summary bar */}
       <div className="grid grid-cols-3 gap-3">
         <SummaryCard
@@ -167,8 +172,8 @@ function SummaryCard({ label, value, active, tone, onClick }) {
     tone === "danger"
       ? "text-red-300"
       : tone === "warn"
-      ? "text-yellow-200"
-      : "text-white";
+        ? "text-yellow-200"
+        : "text-white";
 
   return (
     <button
