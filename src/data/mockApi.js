@@ -11,55 +11,61 @@ function loadItems() {
   } catch (e) {
     console.error("Failed to load items", e);
   }
+  const currentUser = localStorage.getItem("currentUser");
+
+  if (!currentUser) {
+    const initial = [
+      {
+        id: 1,
+        name: "Trứng gà",
+        category: "EGG",
+        purchaseDate: "2025-12-20",
+        expiryDate: "2025-12-31",
+        estimatedExpiryDate: null,
+        quantity: 6,
+        unit: "pcs",
+        storageType: "FRIDGE",
+        status: "ACTIVE",
+        source: "manual",
+        alertDismissedAt: null,
+      },
+      {
+        id: 2,
+        name: "Rau cải",
+        category: "VEGETABLE",
+        purchaseDate: "2025-12-27",
+        expiryDate: null,
+        estimatedExpiryDate: "2025-12-30",
+        quantity: 1,
+        unit: "bunch",
+        storageType: "FRIDGE",
+        status: "ACTIVE",
+        source: "ai_estimate",
+        alertDismissedAt: null,
+      },
+      {
+        id: 3,
+        name: "Thịt bò",
+        category: "MEAT",
+        purchaseDate: "2025-12-25",
+        expiryDate: "2025-12-28",
+        estimatedExpiryDate: null,
+        quantity: 0.5,
+        unit: "kg",
+        storageType: "FRIDGE",
+        status: "ACTIVE",
+        source: "manual",
+        alertDismissedAt: null,
+      },
+    ];
+
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+    return initial;
+  }
+
+  return [];
 
   // seed data (chỉ dùng khi CHƯA có gì trong storage)
-  const initial = [
-    {
-      id: 1,
-      name: "Trứng gà",
-      category: "EGG",
-      purchaseDate: "2025-12-20",
-      expiryDate: "2025-12-31",
-      estimatedExpiryDate: null,
-      quantity: 6,
-      unit: "pcs",
-      storageType: "FRIDGE",
-      status: "ACTIVE",
-      source: "manual",
-      alertDismissedAt: null,
-    },
-    {
-      id: 2,
-      name: "Rau cải",
-      category: "VEGETABLE",
-      purchaseDate: "2025-12-27",
-      expiryDate: null,
-      estimatedExpiryDate: "2025-12-30",
-      quantity: 1,
-      unit: "bunch",
-      storageType: "FRIDGE",
-      status: "ACTIVE",
-      source: "ai_estimate",
-      alertDismissedAt: null,
-    },
-    {
-      id: 3,
-      name: "Thịt bò",
-      category: "MEAT",
-      purchaseDate: "2025-12-25",
-      expiryDate: "2025-12-28",
-      estimatedExpiryDate: null,
-      quantity: 0.5,
-      unit: "kg",
-      storageType: "FRIDGE",
-      status: "ACTIVE",
-      source: "manual",
-      alertDismissedAt: null,
-    },
-  ];
-
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
-  return initial;
 }
 
 function saveItems(items) {
@@ -130,13 +136,11 @@ export const api = {
   async getItems() {
     const items = loadItems();
 
-    return items
-      .map(computeDerived)
-      .sort((a, b) => {
-        const ea = a.effectiveExpiry || "9999-12-31";
-        const eb = b.effectiveExpiry || "9999-12-31";
-        return ea.localeCompare(eb);
-      });
+    return items.map(computeDerived).sort((a, b) => {
+      const ea = a.effectiveExpiry || "9999-12-31";
+      const eb = b.effectiveExpiry || "9999-12-31";
+      return ea.localeCompare(eb);
+    });
   },
 
   async getItemById(id) {
@@ -150,9 +154,7 @@ export const api = {
     const items = loadItems();
 
     const nextId =
-      items.length === 0
-        ? 1
-        : Math.max(...items.map((x) => x.id)) + 1;
+      items.length === 0 ? 1 : Math.max(...items.map((x) => x.id)) + 1;
 
     const newItem = {
       id: nextId,
@@ -220,8 +222,7 @@ export const api = {
     const nextItems = items.map((it) => {
       const d = computeDerived(it);
       if (
-        (d.expiryStatus === "EXPIRED" ||
-          d.expiryStatus === "EXPIRING_SOON") &&
+        (d.expiryStatus === "EXPIRED" || d.expiryStatus === "EXPIRING_SOON") &&
         !it.alertDismissedAt
       ) {
         return { ...it, alertDismissedAt: now };
@@ -244,17 +245,27 @@ export const api = {
     const add = (title, uses, timeMin) =>
       suggestions.push({ id: title, title, uses, timeMin });
 
-    if (names.some((n) => n.includes("trứng")) && names.some((n) => n.includes("rau"))) {
+    if (
+      names.some((n) => n.includes("trứng")) &&
+      names.some((n) => n.includes("rau"))
+    ) {
       add("Canh rau nấu trứng", ["Trứng gà", "Rau cải"], 20);
       add("Salad rau + trứng luộc", ["Trứng gà", "Rau cải"], 10);
     }
 
-    if (names.some((n) => n.includes("thịt")) && names.some((n) => n.includes("rau"))) {
+    if (
+      names.some((n) => n.includes("thịt")) &&
+      names.some((n) => n.includes("rau"))
+    ) {
       add("Thịt xào rau", ["Thịt bò", "Rau cải"], 15);
     }
 
     if (suggestions.length === 0) {
-      add("Món gợi ý đơn giản", items.map((x) => x.name), 15);
+      add(
+        "Món gợi ý đơn giản",
+        items.map((x) => x.name),
+        15
+      );
     }
 
     return { basedOn: items.map((x) => x.name), suggestions };
