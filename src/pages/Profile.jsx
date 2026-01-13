@@ -8,10 +8,6 @@ export default function Profile() {
         <Row label="Default warn days" value="3 days" />
         <Row label="AI scan" value="Mock mode" />
       </div>
-
-      <button className="w-full rounded-xl border border-line bg-card px-4 py-2 text-sm text-muted hover:text-white">
-        Sign out (demo)
-      </button>
     </div>
   );
 }
