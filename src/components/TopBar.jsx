@@ -12,7 +12,7 @@ export default function TopBar({ search, onSearchChange }) {
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
     localStorage.removeItem("expiry-tracker-items");
-    navigate("/signup", { replace: true });
+    navigate("/login", { replace: true });
   };
 
   // show search only on dashboard/root

@@ -9,11 +9,12 @@ import Notifications from "./pages/Notifications";
 import Profile from "./pages/Profile";
 import SignUp from "./pages/SignUp";
 import StartupRedirect from "./components/StartupRedirect";
-
+import Login from "./pages/Login";
 export default function App() {
   return (
     <Routes>
       <Route path="/signup" element={<SignUp />} />
+      <Route path="/login" element={<Login />} />
       <Route element={<AppLayout />}>
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="menu" element={<MenuSuggestions />} />
