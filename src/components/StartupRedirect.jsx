@@ -7,5 +7,5 @@ export default function StartupRedirect() {
     return <Navigate to="/dashboard" replace />;
   }
 
-  return <Navigate to="/signup" replace />;
+  return <Navigate to="/login" replace />;
 }
