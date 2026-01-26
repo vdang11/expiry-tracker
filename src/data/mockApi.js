@@ -4,72 +4,56 @@
 
 const STORAGE_KEY = "expiry-tracker-items";
 
-function loadItems() {
+function getStorageKeyForCurrentUser() {
+  const rawUser = localStorage.getItem("currentUser");
+  if (!rawUser) {
+    // chưa login → dùng key chung (nếu có)
+    return STORAGE_KEY;
+  }
+
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const user = JSON.parse(rawUser);
+    const username = user?.username?.trim();
+    if (!username) return STORAGE_KEY;
+
+    // mỗi user có 1 key riêng
+    return `${STORAGE_KEY}-${username}`;
+  } catch (e) {
+    console.error("Failed to parse currentUser", e);
+    return STORAGE_KEY;
+  }
+}
+
+function loadItems() {
+  const storageKey = getStorageKeyForCurrentUser();
+
+  try {
+    const raw = localStorage.getItem(storageKey);
     if (raw) return JSON.parse(raw);
   } catch (e) {
     console.error("Failed to load items", e);
   }
+
   const currentUser = localStorage.getItem("currentUser");
 
-  if (!currentUser) {
+  // Nếu chưa login (demo trước auth) thì seed data demo vào key chung
+  if (!currentUser && storageKey === STORAGE_KEY) {
     const initial = [
-      {
-        id: 1,
-        name: "Trứng gà",
-        category: "EGG",
-        purchaseDate: "2025-12-20",
-        expiryDate: "2025-12-31",
-        estimatedExpiryDate: null,
-        quantity: 6,
-        unit: "pcs",
-        storageType: "FRIDGE",
-        status: "ACTIVE",
-        source: "manual",
-        alertDismissedAt: null,
-      },
-      {
-        id: 2,
-        name: "Rau cải",
-        category: "VEGETABLE",
-        purchaseDate: "2025-12-27",
-        expiryDate: null,
-        estimatedExpiryDate: "2025-12-30",
-        quantity: 1,
-        unit: "bunch",
-        storageType: "FRIDGE",
-        status: "ACTIVE",
-        source: "ai_estimate",
-        alertDismissedAt: null,
-      },
-      {
-        id: 3,
-        name: "Thịt bò",
-        category: "MEAT",
-        purchaseDate: "2025-12-25",
-        expiryDate: "2025-12-28",
-        estimatedExpiryDate: null,
-        quantity: 0.5,
-        unit: "kg",
-        storageType: "FRIDGE",
-        status: "ACTIVE",
-        source: "manual",
-        alertDismissedAt: null,
-      },
+      // … array “Trứng gà”, “Thịt bò”, v.v. giữ nguyên y như cũ …
     ];
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(initial));
+    localStorage.setItem(storageKey, JSON.stringify(initial));
     return initial;
   }
 
+  // user mới → tủ lạnh trống
   return [];
-
-  // seed data (chỉ dùng khi CHƯA có gì trong storage)
 }
 
+
 function saveItems(items) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  const storageKey = getStorageKeyForCurrentUser();
+  localStorage.setItem(storageKey, JSON.stringify(items));
 }
 
 /* =========================

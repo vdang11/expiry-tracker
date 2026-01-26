@@ -7,34 +7,31 @@ export default function Login() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
-
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   }
-
-  async function handleSubmit(e) {
+  async function handleLogin(e) {
     e.preventDefault();
     setError("");
 
-    if (!form.username || !form.password) {
-      setError("Please fill in all fields.");
-      return;
-    }
-
-    const result = await login(form);
+    const result = login({
+      username: form.username,
+      password: form.password,
+    });
 
     if (!result.ok) {
       setError(result.error);
       return;
     }
 
-    navigate("/dashboard", { replace: true });
+    navigate("/");
   }
+
 
   return (
     <AuthLayout title="Welcome back" subtitle="Log in to manage your food items.">
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleLogin} className="space-y-4">
         <input
           name="username"
           placeholder="Username"

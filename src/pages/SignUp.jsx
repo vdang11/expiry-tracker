@@ -31,7 +31,9 @@ export default function SignUp() {
       return;
     }
 
-    const result = await signup({
+
+
+    const result = signup({
       username: form.username,
       password: form.password,
     });
@@ -41,7 +43,7 @@ export default function SignUp() {
       return;
     }
 
-    navigate("/dashboard", { replace: true });
+    navigate("/login");
   }
 
   return (

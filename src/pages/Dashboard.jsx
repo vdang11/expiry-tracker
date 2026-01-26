@@ -11,8 +11,15 @@ export default function Dashboard() {
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const currentUser = JSON.parse(localStorage.getItem("currentUser"));
-  const initials = currentUser.username[0].toUpperCase();
 
+
+  useEffect(() => {
+  if (!currentUser) {
+    navigate("/login", { replace: true });
+  }
+}, [currentUser]);
+
+  const initials = currentUser.username[0].toUpperCase();
   useEffect(() => {
     let alive = true;
 
