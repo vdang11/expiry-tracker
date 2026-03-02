@@ -1,6 +1,6 @@
 package com.example.expiry.service;
 
-import com.example.expiry.infrastructure.OpenAIClient;
+import com.example.expiry.infrastructure.ai.OpenAIClient;
 import com.example.expiry.dto.ExpiryResult;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;

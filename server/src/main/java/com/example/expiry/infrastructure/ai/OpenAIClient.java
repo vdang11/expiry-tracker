@@ -1,4 +1,4 @@
-package com.example.expiry.infrastructure;
+package com.example.expiry.infrastructure.ai;
 
 import com.example.expiry.dto.ExpiryResult;
 import com.example.expiry.domain.ProductNameNormalizer;
