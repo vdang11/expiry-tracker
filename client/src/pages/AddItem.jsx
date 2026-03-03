@@ -15,23 +15,24 @@ export default function AddItem() {
   const [expiryDate, setExpiryDate] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState("pcs");
-  const [imageFile, setImageFile] = useState(null);
-  const [imagePreview, setImagePreview] = useState("");
+  const [imageFiles, setImageFiles] = useState([]);
+  const [imagePreviews, setImagePreviews] = useState([]);
 
 
-  // scan mock
-  const [detecting, setDetecting] = useState(false);
-
+  // scan state
   function handleImageChange(e) {
-  const file = e.target.files?.[0];
-  if (!file) return;
+    const files = Array.from(e.target.files || []);
 
-  setImageFile(file);
-  setImagePreview(URL.createObjectURL(file));
-}
+    if (!files.length) return;
+
+    setImageFiles(files);
+
+    const previews = files.map(file => URL.createObjectURL(file));
+    setImagePreviews(previews);
+  }
 
 
-    // yyyy-mm-dd in local time (safe for <input type="date">)
+  // yyyy-mm-dd in local time (safe for <input type="date">)
   function todayISO() {
     const now = new Date();
     const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
@@ -41,76 +42,107 @@ export default function AddItem() {
   const today = todayISO();
 
   async function handleSave() {
-  const trimmedName = name.trim();
-  if (!trimmedName) {
-    alert("Please enter food name");
-    return;
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      alert("Please enter food name");
+      return;
+    }
+
+    if (!purchaseDate) {
+      alert("Please select purchase date");
+      return;
+    }
+
+    // rule 1: purchase date must NOT be in the future
+    if (purchaseDate > today) {
+      alert("Purchase date cannot be in the future.");
+      return;
+    }
+
+    // rule 2: expiry date must NOT be in the past (if provided)
+    if (expiryDate && expiryDate < today) {
+      alert("Expiry date cannot be in the past.");
+      return;
+    }
+
+    // optional: expiry should not be before purchase
+    if (expiryDate && expiryDate < purchaseDate) {
+      alert("Expiry date cannot be earlier than purchase date.");
+      return;
+    }
+
+    await api.createItem({
+      name: trimmedName,
+      purchaseDate,
+      expiryDate: expiryDate || null,
+      estimatedExpiryDate: null,
+      quantity,
+      unit,
+      category: "OTHER",
+      storageType: "FRIDGE",
+      source: mode === "scan" ? "scan" : "manual",
+    });
+
+    navigate("/");
   }
 
-  if (!purchaseDate) {
-    alert("Please select purchase date");
-    return;
+
+  // OCR scan
+  async function handleScan() {
+    if (!imageFiles.length) {
+      alert("Please upload image(s) first.");
+      return;
+    }
+
+    setDetecting(true);
+
+    try {
+      const formData = new FormData();
+
+      imageFiles.forEach(file => {
+        formData.append("images", file); // phải trùng với BE
+      });
+
+      const response = await fetch(
+        "http://localhost:8080/api/vision/scan",
+        {
+          method: "POST",
+          body: formData
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        alert(error.message || "Scan failed");
+        return;
+      }
+
+      const data = await response.json();
+
+      if (data.productName) {
+        setName(data.productName);
+      }
+
+      if (data.expiryDate && data.expiryDate !== "UNKNOWN") {
+        setExpiryDate(data.expiryDate);
+      }
+
+    } catch (err) {
+      console.error(err);
+      alert("Scan failed");
+    } finally {
+      setDetecting(false);
+    }
   }
 
-  // rule 1: purchase date must NOT be in the future
-  if (purchaseDate > today) {
-    alert("Purchase date cannot be in the future.");
-    return;
+  function switchMode(next) {
+    setMode(next);
+    if (next !== "scan") {
+      setImageFile(null);
+      setImagePreview("");
+      setDetecting(false);
+    }
   }
-
-  // rule 2: expiry date must NOT be in the past (if provided)
-  if (expiryDate && expiryDate < today) {
-    alert("Expiry date cannot be in the past.");
-    return;
-  }
-
-  // optional: expiry should not be before purchase
-  if (expiryDate && expiryDate < purchaseDate) {
-    alert("Expiry date cannot be earlier than purchase date.");
-    return;
-  }
-
-  await api.createItem({
-    name: trimmedName,
-    purchaseDate,
-    expiryDate: expiryDate || null,
-    estimatedExpiryDate: null,
-    quantity,
-    unit,
-    category: "OTHER",
-    storageType: "FRIDGE",
-    source: mode === "scan" ? "scan" : "manual",
-  });
-
-  navigate("/");
-}
-
-
-  // mock scan (sau này thay bằng OCR backend)
-  function handleScan() {
-  if (!imageFile) {
-    alert("Please upload an image first.");
-    return;
-  }
-
-  setDetecting(true);
-
-  setTimeout(() => {
-    // mock result (later: send imageFile to backend)
-    setName("Milk");
-    setExpiryDate("2026-01-05");
-    setDetecting(false);
-  }, 800);
-}
-
-function switchMode(next) {
-  setMode(next);
-  if (next !== "scan") {
-    setImageFile(null);
-    setImagePreview("");
-    setDetecting(false);
-  }
-}
 
 
 
@@ -126,38 +158,44 @@ function switchMode(next) {
 
       {/* Scan mode */}
       {mode === "scan" && (
-  <div className="rounded-2xl border border-line bg-card p-4 space-y-3">
-    <p className="text-sm text-muted">
-      Upload an image first, then scan to detect expiry date.
-    </p>
+        <div className="rounded-2xl border border-line bg-card p-4 space-y-3">
+          <p className="text-sm text-muted">
+            Upload an image first, then scan to detect expiry date.
+          </p>
 
-    {/* Upload */}
-    <input
-      type="file"
-      accept="image/*"
-      onChange={handleImageChange}
-      className="block w-full text-sm"
-    />
+          {/* Upload */}
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            onChange={handleImageChange}
+            className="block w-full text-sm"
+          />
 
-    {/* Preview */}
-    {imagePreview && (
-      <img
-        src={imagePreview}
-        alt="Preview"
-        className="w-full max-h-64 object-contain rounded-xl border border-line"
-      />
-    )}
+          {/* Preview */}
+          {imagePreviews.length > 0 && (
+            <div className="grid grid-cols-2 gap-2">
+              {imagePreviews.map((src, index) => (
+                <img
+                  key={index}
+                  src={src}
+                  alt={`Preview ${index}`}
+                  className="w-full max-h-48 object-contain rounded-xl border border-line"
+                />
+              ))}
+            </div>
+          )}
 
-    {/* Scan */}
-    <button
-      onClick={handleScan}
-      disabled={detecting || !imageFile}
-      className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-black disabled:opacity-60"
-    >
-      {detecting ? "Scanning..." : "Scan image"}
-    </button>
-  </div>
-)}
+          {/* Scan */}
+          <button
+            onClick={handleScan}
+            disabled={detecting || imageFiles.length === 0}
+            className="rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-black disabled:opacity-60"
+          >
+            {detecting ? "Scanning..." : "Scan image"}
+          </button>
+        </div>
+      )}
 
 
       {/* Form */}
