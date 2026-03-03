@@ -29,3 +29,4 @@ server/.mvn/wrapper/maven-wrapper.jar
 server/*.log
 server/.env
 server/application-local.yml
+server/.vscode/launch.json
