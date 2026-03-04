@@ -2,7 +2,29 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ===== Hide native date icon (macOS dark mode fix) ===== */
+/* ============================= */
+/* Global Input Fix (Dark Theme) */
+/* ============================= */
+
+input,
+select,
+textarea {
+  color: white;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: #9ca3af;
+}
+
+.bg-input {
+  color: white;
+}
+
+/* ============================= */
+/* Hide native date icon (macOS dark mode fix) */
+/* ============================= */
+
 input[type="date"] {
   color-scheme: dark;
 }
@@ -14,4 +36,41 @@ input[type="date"]::-webkit-calendar-picker-indicator {
   width: 40px;
   height: 100%;
   cursor: pointer;
+}
+
+/* ============================= */
+/* Better focus style */
+/* ============================= */
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+}
+
+/* ============================= */
+/* Smooth UI rendering */
+/* ============================= */
+
+input,
+select,
+textarea {
+  transition: all 0.15s ease;
+}
+
+/* ============================= */
+/* Nicer scrollbars */
+/* ============================= */
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
 }
