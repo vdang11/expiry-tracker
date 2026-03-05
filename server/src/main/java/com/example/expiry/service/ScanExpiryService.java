@@ -1,51 +1,80 @@
 package com.example.expiry.service;
 
-import com.example.expiry.infrastructure.ai.OpenAIClient;
 import com.example.expiry.dto.ExpiryResult;
+import com.example.expiry.infrastructure.ai.OpenAIClient;
+import com.example.expiry.infrastructure.ai.VisionImage;
+import com.example.expiry.infrastructure.image.ImageOptimizer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.Base64;
+import java.util.List;
 import java.util.Locale;
 
 @Service
 public class ScanExpiryService {
 
-    private final OpenAIClient openAIClient;
+    private static final Logger log = LoggerFactory.getLogger(ScanExpiryService.class);
 
-    public ScanExpiryService(OpenAIClient openAIClient) {
+    private final OpenAIClient openAIClient;
+    private final ExpiryDecisionEngine decisionEngine;
+    private final ImageValidator imageValidator;
+    private final ImageOptimizer imageOptimizer;
+
+    public ScanExpiryService(
+            OpenAIClient openAIClient,
+            ExpiryDecisionEngine decisionEngine,
+            ImageValidator imageValidator,
+            ImageOptimizer imageOptimizer
+    ) {
         this.openAIClient = openAIClient;
+        this.decisionEngine = decisionEngine;
+        this.imageValidator = imageValidator;
+        this.imageOptimizer = imageOptimizer;
     }
 
-    public ExpiryResult scan(MultipartFile image) {
+    public ExpiryResult scan(List<MultipartFile> images) {
         try {
-            // 1. Đọc bytes từ file upload
-            byte[] bytes = image.getBytes();
+            // 1) Validate list size + each file
+            imageValidator.validateAll(images);
 
-            // 2. Encode BASE64 TẠI ĐÂY (ĐÚNG CHỖ)
-            String base64 = Base64.getEncoder().encodeToString(bytes);
+            // 2) Optimize + base64
+            List<VisionImage> visionImages = new ArrayList<>();
 
-            // 3. Gọi OpenAI
-            ExpiryResult result= openAIClient.callVision(base64);
+            for (MultipartFile file : images) {
+                byte[] originalBytes = file.getBytes();
 
-            // 3.1 If no package, estimate expiry using conservative rules (always ESTIMATED + needs confirmation)
+                ImageOptimizer.OptimizedImage optimized =
+                        imageOptimizer.optimize(originalBytes, file.getContentType());
+
+                String base64 = Base64.getEncoder().encodeToString(optimized.bytes());
+
+                visionImages.add(new VisionImage(optimized.mimeType(), base64));
+            }
+
+            // 3) Call OpenAI
+            ExpiryResult result = openAIClient.callVision(visionImages);
+
+            // 3.1) If no package, estimate expiry using conservative rules
             applyNoPackageEstimation(result);
 
-            // 4. Gọi ExpiryDecisionHelper
-
-            // lấy dữ liệu AI đã parse ra
+            // 4) Decision
             String expiryDate = result.getExpiryDate();
             String dateType = result.getDateType();
             String imageQuality = result.getImageQuality();
             double confidence = result.getConfidence();
-            boolean productAccepted = result.getProductName() != null && result.getProductNameConfidence() >= 0.75;
 
-            // đưa vào decision helper
-            ExpiryDecisionHelper.Decision decision = ExpiryDecisionHelper.decide(expiryDate, dateType, imageQuality, confidence);
+            boolean productAccepted =
+                    result.getProductName() != null && result.getProductNameConfidence() >= 0.75;
 
-            // enrich lại result
+            ExpiryDecisionEngine.Decision decision =
+                    decisionEngine.decide(expiryDate, dateType, imageQuality, confidence);
+
             result.setStatus(decision.getStatus());
             result.setReason(decision.getReason());
             result.setSuggestedAction(decision.getSuggestedAction());
@@ -53,12 +82,10 @@ public class ScanExpiryService {
 
             return result;
 
-
         } catch (Exception e) {
-            System.out.println(">>> SCAN EXPIRY FAILED");
-            e.printStackTrace();
+            log.warn("SCAN EXPIRY FAILED", e);
 
-            // Sprint 2 requirement: safer fallback (do not crash request)
+            // Sprint 2/Sprint 3 safe fallback: do not crash request
             ExpiryResult fallback = new ExpiryResult();
             fallback.setExpiryDate("UNKNOWN");
             fallback.setDateType("UNKNOWN");
@@ -70,10 +97,12 @@ public class ScanExpiryService {
             fallback.setConfidence(0.0);
             fallback.setProductName(null);
             fallback.setProductNameConfidence(0.0);
+
             fallback.setStatus("REJECTED");
             fallback.setReason("AI_ERROR");
             fallback.setSuggestedAction("ASK_USER_RESCAN");
             fallback.setProductNameAccepted(false);
+
             return fallback;
         }
     }
@@ -97,8 +126,8 @@ public class ScanExpiryService {
         // Hard safety caps (avoid crazy estimates)
         String cat = safeUpper(result.getItemCategory());
         int max = ("FROZEN".equals(cat)) ? 90 : 30;
+
         if (days <= 0 || days > max) {
-            // Can't estimate safely
             result.setExpiryDate("UNKNOWN");
             result.setDateType("UNKNOWN");
             result.setConfidence(0.0);
@@ -109,7 +138,7 @@ public class ScanExpiryService {
         result.setExpiryDate(estimated.toString());
         result.setDateType("ESTIMATED");
 
-        // Force below 0.6 per Sprint 2 threshold behavior (never auto-accept)
+        // Force below 0.6 (never auto-accept)
         result.setConfidence(Math.min(result.getConfidence(), 0.59));
         result.setEstimatedShelfLifeDays(days);
     }

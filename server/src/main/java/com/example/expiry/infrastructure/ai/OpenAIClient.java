@@ -1,141 +1,161 @@
 package com.example.expiry.infrastructure.ai;
 
-import com.example.expiry.dto.ExpiryResult;
 import com.example.expiry.domain.ProductNameNormalizer;
+import com.example.expiry.dto.ExpiryResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 @Component
 public class OpenAIClient {
 
-    private final RestClient restClient;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Logger log = LoggerFactory.getLogger(OpenAIClient.class);
 
-    public OpenAIClient(RestClient openAIClient) {
+    private static final String MODEL = "gpt-4.1-mini";
+
+    // Tách prompt ra constant để dễ maintain
+    private static final String PROMPT = """
+            You are extracting information from one or more images of the SAME food product package.
+            Different images may show different sides of the package.
+
+            IMPORTANT: Combine information across all images before answering.
+
+            --------------------------------
+            VISION ATTENTION STRATEGY
+            --------------------------------
+
+            STEP 1 — SEARCH FOR EXPIRY KEYWORDS FIRST
+
+            Carefully scan the images for expiry-related keywords such as:
+
+            EXP
+            EXPIRY
+            BEST BEFORE
+            USE BY
+            BBE
+            DATE
+
+            These keywords usually appear near the expiry date.
+
+            STEP 2 — READ THE DATE NEAR THE KEYWORD
+
+            If a keyword is found, read the nearby date.
+            The date may appear above, below, or next to the keyword.
+
+            STEP 3 — ONLY AFTER EXPIRY CHECK
+
+            Identify the FOOD PRODUCT NAME on the packaging.
+
+            --------------------------------
+            IMPORTANT SAFETY RULES
+            --------------------------------
+
+            - Do NOT guess a random expiry date.
+            - If the expiry text is unreadable/blurry, return UNKNOWN and set imageQuality="BLURRY".
+
+            --------------------------------
+            RETURN JSON ONLY
+            --------------------------------
+
+            {
+              "expiryDate": "YYYY-MM-DD or UNKNOWN",
+              "dateType": "CONFIRMED|ESTIMATED|UNKNOWN",
+              "imageQuality": "OK|BLURRY|UNKNOWN",
+              "packagePresent": "YES|NO|UNKNOWN",
+              "itemCategory": "FRESH_PRODUCE|FRESH_MEAT|FRESH_SEAFOOD|DAIRY|BAKERY|READY_TO_EAT|PANTRY_PACKAGED|FROZEN|BEVERAGE|UNKNOWN",
+              "freshnessState": "FRESH|NEW|RIPE|OPENED|COOKED|LEFTOVER|UNKNOWN",
+              "estimatedShelfLifeDays": 0,
+              "confidence": 0.0,
+              "productName": "string or null",
+              "productNameConfidence": 0.0
+            }
+
+            --------------------------------
+            EXPIRY RULES
+            --------------------------------
+
+            1) If you can see a full expiry date (DD/MM/YYYY, YYYY-MM-DD, MM/DD/YYYY):
+               convert it to ISO format YYYY-MM-DD,
+               set dateType="CONFIRMED".
+
+            2) If only MONTH/YEAR is visible (e.g. 03/2026, MAR 2026):
+               set expiryDate to the LAST day of that month,
+               set dateType="ESTIMATED",
+               confidence MUST be < 0.6.
+
+            3) If only YEAR or nothing is visible:
+               set expiryDate="UNKNOWN",
+               dateType="UNKNOWN",
+               confidence=0.0.
+
+            --------------------------------
+            PACKAGE RULES
+            --------------------------------
+
+            If a package or printed label is visible → packagePresent="YES".
+            If food appears unpackaged (loose fruit, cooked meal, etc.) → packagePresent="NO".
+            Otherwise → packagePresent="UNKNOWN".
+
+            --------------------------------
+            ESTIMATION MODE
+            --------------------------------
+
+            ONLY when packagePresent="NO":
+
+            - Do NOT pretend you saw a printed expiry date.
+            - Set dateType="ESTIMATED".
+            - confidence < 0.6.
+            - Choose itemCategory and freshnessState.
+            - Provide conservative estimatedShelfLifeDays.
+
+            --------------------------------
+            PRODUCT NAME RULES
+            --------------------------------
+
+            - productName: short food product name only.
+            - Ignore weight, nutrition, expiry text, slogans.
+            - If not found → return null.
+            - productNameConfidence between 0.0 and 1.0
+            """;
+
+    private final RestClient restClient;
+    private final ObjectMapper objectMapper;
+
+    public OpenAIClient(RestClient openAIClient, ObjectMapper objectMapper) {
         this.restClient = openAIClient;
+        this.objectMapper = objectMapper;
     }
 
-    public ExpiryResult callVision(String base64Image) {
+    public ExpiryResult callVision(List<VisionImage> images) {
+        Map<String, Object> body = buildBody(images);
+        Map<String, Object> logBody = buildLogBody(images);
 
-        // =========================
-        // 1) PROMPT: expiry date + product name (JSON ONLY)
-        // =========================
-        String prompt = """
-                You are extracting information from a food product image.
+        log.info("FINAL INPUT SENT TO OPENAI (SANITIZED) = {}", logBody);
 
-                IMPORTANT SAFETY RULES:
-                - Do NOT guess a random expiry date.
-                - If the expiry text is unreadable/blurry, return UNKNOWN and set imageQuality="BLURRY".
+        Map<?, ?> response = restClient.post()
+                .uri("/responses")
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .body(Map.class);
 
-                Return JSON ONLY (no markdown, no explanations) with exactly this format:
-                {
-                  "expiryDate": "YYYY-MM-DD or UNKNOWN",
-                  "dateType": "CONFIRMED|ESTIMATED|UNKNOWN",
-                  "imageQuality": "OK|BLURRY|UNKNOWN",
-                  "packagePresent": "YES|NO|UNKNOWN",
-                  "itemCategory": "FRESH_PRODUCE|FRESH_MEAT|FRESH_SEAFOOD|DAIRY|BAKERY|READY_TO_EAT|PANTRY_PACKAGED|FROZEN|BEVERAGE|UNKNOWN",
-                  "freshnessState": "FRESH|NEW|RIPE|OPENED|COOKED|LEFTOVER|UNKNOWN",
-                  "estimatedShelfLifeDays": 0,
-                  "confidence": 0.0,
-                  "productName": "string or null",
-                  "productNameConfidence": 0.0
-                }
+        log.info("RAW OPENAI RESPONSE = {}", response);
 
-                Expiry rules:
-                1) If you can see an explicit full date (e.g., DD/MM/YYYY, YYYY-MM-DD, MM/DD/YYYY), convert it to ISO YYYY-MM-DD,
-                   set dateType="CONFIRMED", and choose confidence from 0.0 to 1.0.
-                2) If you can ONLY see MONTH/YEAR (e.g., 03/2026, MAR 2026):
-                   - Set expiryDate to the LAST day of that month in ISO (e.g., 2026-03-31)
-                   - Set dateType="ESTIMATED"
-                   - confidence MUST be < 0.6
-                3) If you can ONLY see YEAR, or no expiry info: set expiryDate="UNKNOWN", dateType="UNKNOWN", confidence=0.0.
+        String outputText = extractOutputText(response);
+        if (outputText == null || outputText.isBlank()) {
+            throw new IllegalStateException("OpenAI response missing output_text");
+        }
 
-                Package rules:
-                - If you can see a package/label or printed text area where expiry would normally exist, set packagePresent="YES".
-                - If the item appears unpackaged / no label / no printed text area (e.g., loose fruit, cooked food on a plate), set packagePresent="NO".
-                - Otherwise packagePresent="UNKNOWN".
-
-                Estimation mode (ONLY when packagePresent="NO"):
-                - You MUST NOT pretend you saw a printed expiry date.
-                - Set dateType="ESTIMATED".
-                - Set confidence < 0.6.
-                - Choose itemCategory and freshnessState.
-                - Provide a conservative estimatedShelfLifeDays (integer). If unsure, set itemCategory="UNKNOWN" and estimatedShelfLifeDays=0.
-
-                Product rules:
-                - productName: short product name only (no weight, no nutrition, no expiry text). If not found, use null.
-                - productNameConfidence: 0.0 to 1.0.
-                """;
-
-        // =========================
-        // 2) BODY GỬI THẬT (CÓ BASE64)
-        // =========================
-        Map<String, Object> body = Map.of(
-                "model", "gpt-4.1-mini",
-                "input", List.of(
-                        Map.of(
-                                "type", "message",
-                                "role", "user",
-                                "content", List.of(
-                                        Map.of(
-                                                "type", "input_text",
-                                                "text", prompt
-                                        ),
-                                        Map.of(
-                                                "type", "input_image",
-                                                "image_url", "data:image/jpeg;base64," + base64Image
-                                        )
-                                )
-                        )
-                )
-        );
-
-        // =========================
-        // 3) BODY LOG (KHÔNG BASE64)
-        // =========================
-        Map<String, Object> logBody = Map.of(
-                "model", "gpt-4.1-mini",
-                "input", List.of(
-                        Map.of(
-                                "type", "message",
-                                "role", "user",
-                                "content", List.of(
-                                        Map.of(
-                                                "type", "input_text",
-                                                "text", "Vision prompt: expiryDate + productName (JSON only)"
-                                        ),
-                                        Map.of(
-                                                "type", "input_image",
-                                                "image_url", "<<BASE64_IMAGE>>"
-                                        )
-                                )
-                        )
-                )
-        );
-
-        System.out.println(">>> FINAL INPUT SENT TO OPENAI (SANITIZED) = " + logBody);
-
+        String json = stripMarkdownCodeFences(outputText);
         try {
-            Map<?, ?> response = restClient.post()
-                    .uri("/responses")
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .body(body)
-                    .retrieve()
-                    .body(Map.class);
-
-            System.out.println(">>> RAW OPENAI RESPONSE = " + response);
-
-            String outputText = extractOutputText(response);
-            System.out.println(">>> OUTPUT_TEXT = " + outputText);
-
-            String json = stripMarkdownCodeFences(outputText);
-
             JsonNode node = objectMapper.readTree(json);
 
             String expiryDate = readText(node, "expiryDate", "UNKNOWN");
@@ -166,34 +186,63 @@ public class OpenAIClient {
             );
 
         } catch (Exception e) {
-            System.out.println(">>> OPENAI CALL FAILED");
-            e.printStackTrace();
-
-            // Sprint 2 requirement: safer fallback (do not crash request)
-            return new ExpiryResult(
-                    "UNKNOWN",
-                    "UNKNOWN",
-                    "UNKNOWN",
-                    "UNKNOWN",
-                    "UNKNOWN",
-                    "UNKNOWN",
-                    0,
-                    0.0,
-                    null,
-                    0.0
-            );
+            throw new IllegalStateException("Failed to parse OpenAI JSON output", e);
         }
+    }
+
+    private Map<String, Object> buildBody(List<VisionImage> images) {
+        List<Map<String, Object>> content = new ArrayList<>();
+        content.add(Map.of("type", "input_text", "text", PROMPT));
+
+        for (VisionImage img : images) {
+            String mime = (img.mimeType() == null || img.mimeType().isBlank()) ? "image/jpeg" : img.mimeType();
+            content.add(Map.of(
+                    "type", "input_image",
+                    "image_url", "data:" + mime + ";base64," + img.base64()
+            ));
+        }
+
+        return Map.of(
+                "model", MODEL,
+                "input", List.of(
+                        Map.of(
+                                "type", "message",
+                                "role", "user",
+                                "content", content
+                        )
+                )
+        );
+    }
+
+    private Map<String, Object> buildLogBody(List<VisionImage> images) {
+        List<Map<String, Object>> content = new ArrayList<>();
+        content.add(Map.of("type", "input_text", "text", PROMPT));
+
+        for (int i = 0; i < images.size(); i++) {
+            content.add(Map.of(
+                    "type", "input_image",
+                    "image_url", "BASE64_IMAGE_REDACTED"
+            ));
+        }
+
+        return Map.of(
+                "model", MODEL,
+                "input", List.of(
+                        Map.of(
+                                "type", "message",
+                                "role", "user",
+                                "content", content
+                        )
+                )
+        );
     }
 
     private String extractOutputText(Map<?, ?> response) {
         if (response == null) return "";
 
         Object outputText = response.get("output_text");
-        if (outputText instanceof String s && !s.isBlank()) {
-            return s;
-        }
+        if (outputText instanceof String s && !s.isBlank()) return s;
 
-        // Fallback: output[0].content[0].text
         Object outputObj = response.get("output");
         if (outputObj instanceof List<?> outputList && !outputList.isEmpty()) {
             Object first = outputList.get(0);
@@ -208,23 +257,16 @@ public class OpenAIClient {
                 }
             }
         }
-
         return "";
     }
 
     private String stripMarkdownCodeFences(String text) {
         if (text == null) return "";
-
         String trimmed = text.trim();
-
-        // ```json ... ```
         if (trimmed.startsWith("```")) {
-            // remove first line ``` or ```json
-            trimmed = trimmed.replaceFirst("^```[a-zA-Z0-9]*\n?", "");
-            // remove ending ```
-            trimmed = trimmed.replaceFirst("\n?```$", "");
+            trimmed = trimmed.replaceFirst("^```[a-zA-Z0-9]*\\n?", "");
+            trimmed = trimmed.replaceFirst("\\n?```$", "");
         }
-
         return trimmed.trim();
     }
 
