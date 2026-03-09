@@ -5,6 +5,7 @@ import { CalendarDaysIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 
 const MAX_IMAGES = 2;
+
 const UNIT_GROUPS = [
   {
     label: "Count",
@@ -37,13 +38,13 @@ const UNIT_GROUPS = [
   },
   {
     label: "Fresh Produce",
-    options: [
-      { value: "bunch", label: "Bunch" }
-    ]
+    options: [{ value: "bunch", label: "Bunch" }]
   }
 ];
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 export default function AddItem() {
+
   const navigate = useNavigate();
 
   const [mode, setMode] = useState("scan");
@@ -59,7 +60,10 @@ export default function AddItem() {
   const [imagePreviews, setImagePreviews] = useState([]);
 
   const [detecting, setDetecting] = useState(false);
+
   const [scanMessage, setScanMessage] = useState("");
+  const [scanStatus, setScanStatus] = useState("idle");
+
   const [needsReview, setNeedsReview] = useState(false);
   const [productNameAccepted, setProductNameAccepted] = useState(true);
 
@@ -71,30 +75,11 @@ export default function AddItem() {
 
   const today = todayISO();
 
-  function buildScanMessage(data) {
-    const hasName = !!(data.productName && data.productName.trim());
-    const hasExpiry = !!(data.expiryDate && data.expiryDate !== "UNKNOWN");
-
-    if (hasName && hasExpiry) {
-      return "Product name and expiry date detected.";
-    }
-
-    if (hasExpiry) {
-      return "Expiry date detected. Please scan a photo showing the product name.";
-    }
-
-    if (hasName) {
-      return "Product name detected. Please scan a photo showing the expiry label.";
-    }
-
-    return "Could not detect product name or expiry date. Please take clearer photos and try again.";
-  }
-
   function handleImageChange(e) {
+
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
 
-    // tổng số ảnh sau khi add
     const total = imageFiles.length + files.length;
 
     if (total > MAX_IMAGES) {
@@ -106,7 +91,8 @@ export default function AddItem() {
     const uniqueFiles = files.filter((newFile) => {
       return !imageFiles.some(
         (oldFile) =>
-          oldFile.name === newFile.name && oldFile.size === newFile.size
+          oldFile.name === newFile.name &&
+          oldFile.size === newFile.size
       );
     });
 
@@ -114,10 +100,14 @@ export default function AddItem() {
 
     setImageFiles(updatedFiles);
 
-    const previews = updatedFiles.map((file) => URL.createObjectURL(file));
+    const previews = updatedFiles.map((file) =>
+      URL.createObjectURL(file)
+    );
+
     setImagePreviews(previews);
 
     setScanMessage("");
+    setScanStatus("idle");
     setNeedsReview(false);
     setProductNameAccepted(true);
 
@@ -125,6 +115,7 @@ export default function AddItem() {
   }
 
   function removeImage(index) {
+
     const updatedFiles = imageFiles.filter((_, i) => i !== index);
     const updatedPreviews = imagePreviews.filter((_, i) => i !== index);
 
@@ -132,6 +123,7 @@ export default function AddItem() {
     setImagePreviews(updatedPreviews);
 
     setScanMessage("");
+    setScanStatus("idle");
     setNeedsReview(false);
     setProductNameAccepted(true);
 
@@ -142,6 +134,7 @@ export default function AddItem() {
   }
 
   async function handleScan() {
+
     if (!imageFiles.length) {
       toast.error("Please take at least one photo first.");
       return;
@@ -149,15 +142,20 @@ export default function AddItem() {
 
     setDetecting(true);
 
-
     try {
-      const formData = new FormData();
-      imageFiles.forEach((file) => formData.append("images", file));
 
-      const response = await fetch("http://localhost:8080/api/vision/scan", {
-        method: "POST",
-        body: formData,
-      });
+      const formData = new FormData();
+
+      imageFiles.forEach((file) =>
+        formData.append("images", file)
+      );
+
+      const response = await fetch(`${API_BASE}/api/vision/scan`,
+        {
+          method: "POST",
+          body: formData
+        }
+      );
 
       if (!response.ok) {
         toast.error("Scan failed.");
@@ -179,23 +177,36 @@ export default function AddItem() {
       setProductNameAccepted(data.productNameAccepted ?? true);
       setNeedsReview(data.needsUserReview ?? false);
 
-      setScanMessage(buildScanMessage(data));
+      setScanMessage(data.message ?? "");
+
+      if (data.expiryDate === "UNKNOWN") {
+        setScanStatus("rejected");
+      } else if (data.needsUserReview) {
+        setScanStatus("review");
+      } else {
+        setScanStatus("success");
+      }
 
     } catch (err) {
+
       console.error(err);
       toast.error("Scan failed.");
+
     } finally {
+
       setDetecting(false);
+
     }
   }
 
   const canSave =
     !detecting &&
-    imageFiles.length > 0 &&
-    name &&
-    quantity > 0;
+    name.trim() &&
+    quantity > 0 &&
+    (mode === "manual" || imageFiles.length > 0);
 
   async function handleSave() {
+
     const trimmedName = name.trim();
 
     if (!trimmedName) {
@@ -232,7 +243,7 @@ export default function AddItem() {
       unit,
       category: "OTHER",
       storageType: "FRIDGE",
-      source: mode === "scan" ? "scan" : "manual",
+      source: mode === "scan" ? "scan" : "manual"
     });
 
     toast.success("Item saved!");
@@ -241,20 +252,43 @@ export default function AddItem() {
   }
 
   function switchMode(next) {
+
     setMode(next);
 
     if (next !== "scan") {
+
       setImageFiles([]);
       setImagePreviews([]);
+
       setScanMessage("");
+      setScanStatus("idle");
+
       setNeedsReview(false);
       setDetecting(false);
       setProductNameAccepted(true);
     }
   }
 
+  function messageStyle() {
+
+    if (scanStatus === "success") {
+      return "bg-green-900/30 border-green-600 text-green-300";
+    }
+
+    if (scanStatus === "review") {
+      return "bg-yellow-900/30 border-yellow-600 text-yellow-300";
+    }
+
+    if (scanStatus === "rejected") {
+      return "bg-red-900/30 border-red-600 text-red-300";
+    }
+
+    return "";
+  }
+
   return (
     <div className="mx-auto max-w-xl space-y-4">
+
       <h2 className="text-xl font-semibold">Add Item</h2>
 
       <div className="flex gap-2">
@@ -269,6 +303,7 @@ export default function AddItem() {
 
       {mode === "scan" && (
         <div className="rounded-2xl border border-line bg-card p-4 space-y-3">
+
           <p className="text-sm text-muted text-center">
             Take photos of the product and expiry date
           </p>
@@ -284,16 +319,6 @@ export default function AddItem() {
               className="hidden"
             />
           </label>
-
-          {imageFiles.length > 0 && (
-            <p className="text-xs text-center text-muted">
-              {imageFiles.length === 1 && (
-                <span className="block text-yellow-400 mt-1">
-                  Tip: take photo of the expiry label for best accuracy
-                </span>
-              )}
-            </p>
-          )}
 
           {imagePreviews.length > 0 && (
             <div className="grid grid-cols-2 gap-2">
@@ -332,19 +357,25 @@ export default function AddItem() {
             <div
               className={
                 "rounded-xl p-3 text-sm border text-center " +
-                (needsReview
-                  ? "bg-yellow-900/30 border-yellow-600 text-yellow-300"
-                  : "bg-green-900/30 border-green-600 text-green-300")
+                messageStyle()
               }
             >
               {scanMessage}
+
+              {scanStatus === "rejected" && (
+                <p className="text-xs text-red-400 mt-2">
+                  Tip: take a clearer photo and focus closely on the expiry date label.
+                </p>
+              )}
             </div>
           )}
         </div>
       )}
 
       <div className="rounded-2xl border border-line bg-card p-4 space-y-3">
+
         <Field label="Food name">
+
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -357,11 +388,15 @@ export default function AddItem() {
               ⚠ Please verify product name
             </p>
           )}
+
         </Field>
 
         <div className="grid gap-3 sm:grid-cols-2">
+
           <Field label="Purchase date">
+
             <div className="relative">
+
               <input
                 type="date"
                 value={purchaseDate}
@@ -369,12 +404,17 @@ export default function AddItem() {
                 onChange={(e) => setPurchaseDate(e.target.value)}
                 className="w-full rounded-xl border border-line bg-bg px-3 py-2 pr-10 text-sm"
               />
+
               <CalendarDaysIcon className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+
             </div>
+
           </Field>
 
           <Field label="Expiry date (optional)">
+
             <div className="relative">
+
               <input
                 type="date"
                 value={expiryDate}
@@ -382,7 +422,9 @@ export default function AddItem() {
                 onChange={(e) => setExpiryDate(e.target.value)}
                 className="w-full rounded-xl border border-line bg-bg px-3 py-2 pr-10 text-sm"
               />
+
               <CalendarDaysIcon className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+
             </div>
 
             {needsReview && (
@@ -390,11 +432,15 @@ export default function AddItem() {
                 ⚠ Please verify expiry date
               </p>
             )}
+
           </Field>
+
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
+
           <Field label="Quantity">
+
             <input
               type="number"
               min="0.1"
@@ -403,9 +449,11 @@ export default function AddItem() {
               onChange={(e) => setQuantity(Number(e.target.value))}
               className="w-full rounded-xl border border-line bg-bg px-3 py-2 text-sm"
             />
+
           </Field>
 
           <Field label="Unit">
+
             <select
               value={unit}
               onChange={(e) => setUnit(e.target.value)}
@@ -425,7 +473,9 @@ export default function AddItem() {
               ))}
 
             </select>
+
           </Field>
+
         </div>
 
         <button
@@ -435,6 +485,7 @@ export default function AddItem() {
         >
           Save item
         </button>
+
       </div>
     </div>
   );
