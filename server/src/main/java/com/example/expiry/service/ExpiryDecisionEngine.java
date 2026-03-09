@@ -1,15 +1,17 @@
 package com.example.expiry.service;
 
 import org.springframework.stereotype.Service;
+
 import java.time.LocalDate;
 
 @Service
 public class ExpiryDecisionEngine {
 
     public static class Decision {
-        private String status;
-        private String reason;
-        private String suggestedAction;
+
+        private final String status;
+        private final String reason;
+        private final String suggestedAction;
 
         public Decision(String status, String reason, String suggestedAction) {
             this.status = status;
@@ -24,43 +26,73 @@ public class ExpiryDecisionEngine {
 
     public Decision decide(String expiryDate, String dateType, String imageQuality, double confidence) {
 
-        String safeExpiry = (expiryDate == null) ? "UNKNOWN" : expiryDate.trim();
-        String safeType = (dateType == null) ? "UNKNOWN" : dateType.trim().toUpperCase();
-        String safeQuality = (imageQuality == null) ? "UNKNOWN" : imageQuality.trim().toUpperCase();
+        String expiry = normalize(expiryDate);
+        String type = normalize(dateType).toUpperCase();
+        String quality = normalize(imageQuality).toUpperCase();
 
-        if ("BLURRY".equals(safeQuality) && (safeExpiry.equalsIgnoreCase("UNKNOWN") || confidence < 0.6)) {
-            return new Decision("REJECTED", "BLURRY_IMAGE", "ASK_USER_RESCAN");
-        }
+        // ---------- HARD REJECT RULES ----------
 
-        if (safeExpiry.equalsIgnoreCase("UNKNOWN")) {
-            return new Decision("REJECTED", "NO_DATE_DETECTED", "ASK_USER_RESCAN");
-        }
+        if ("UNKNOWN".equals(expiry))
+            return reject("NO_DATE_DETECTED", "ASK_USER_RESCAN");
 
-        if (!isValidDate(safeExpiry)) {
-            return new Decision("REJECTED", "INVALID_DATE", "ASK_USER_MANUAL_INPUT");
-        }
+        if ("BLURRY".equals(quality) && confidence < 0.7)
+            return reject("BLURRY_IMAGE", "ASK_USER_RESCAN");
 
-        if ("ESTIMATED".equals(safeType)) {
-            return new Decision("REVIEW", "ESTIMATED_DATE", "ASK_USER_CONFIRM");
-        }
+        if (!isValidIsoDate(expiry))
+            return reject("INVALID_DATE_FORMAT", "ASK_USER_MANUAL_INPUT");
 
-        if (confidence >= 0.6) {
-            return new Decision("CONFIRMED", "HIGH_CONFIDENCE", "AUTO_ACCEPT");
-        }
+        LocalDate date = LocalDate.parse(expiry);
+        LocalDate today = LocalDate.now();
 
-        if (confidence >= 0.4) {
-            return new Decision("REVIEW", "LOW_CONFIDENCE", "ASK_USER_CONFIRM");
-        }
+        if (date.isBefore(today))
+            return reject("PAST_DATE_DETECTED", "ASK_USER_MANUAL_INPUT");
 
-        return new Decision("REJECTED", "LOW_CONFIDENCE", "ASK_USER_RESCAN");
+        if (date.isBefore(today.minusYears(5)))
+            return reject("UNREALISTIC_PAST_DATE", "ASK_USER_RESCAN");
+
+        if (date.isAfter(today.plusYears(5)))
+            return reject("UNREALISTIC_FUTURE_DATE", "ASK_USER_RESCAN");
+
+        // ---------- REVIEW RULES ----------
+
+        if ("ESTIMATED".equals(type))
+            return review("ESTIMATED_DATE");
+
+        // ---------- CONFIDENCE RULES ----------
+
+        if (confidence >= 0.75)
+            return accept();
+
+        if (confidence >= 0.4)
+            return review("LOW_CONFIDENCE");
+
+        return reject("LOW_CONFIDENCE", "ASK_USER_RESCAN");
     }
 
-    private boolean isValidDate(String date) {
+    // ---------- helper methods ----------
+
+    private Decision accept() {
+        return new Decision("CONFIRMED", "HIGH_CONFIDENCE", "AUTO_ACCEPT");
+    }
+
+    private Decision review(String reason) {
+        return new Decision("REVIEW", reason, "ASK_USER_CONFIRM");
+    }
+
+    private Decision reject(String reason, String action) {
+        return new Decision("REJECTED", reason, action);
+    }
+
+    private boolean isValidIsoDate(String date) {
         try {
             LocalDate.parse(date);
             return true;
         } catch (Exception e) {
             return false;
         }
+    }
+
+    private String normalize(String value) {
+        return (value == null || value.trim().isEmpty()) ? "UNKNOWN" : value.trim();
     }
 }

@@ -40,13 +40,13 @@ public class ScanExpiryService {
 
     public ExpiryResult scan(List<MultipartFile> images) {
         try {
-            // 1) Validate list size + each file
+
             imageValidator.validateAll(images);
 
-            // 2) Optimize + base64
             List<VisionImage> visionImages = new ArrayList<>();
 
             for (MultipartFile file : images) {
+
                 byte[] originalBytes = file.getBytes();
 
                 ImageOptimizer.OptimizedImage optimized =
@@ -57,20 +57,18 @@ public class ScanExpiryService {
                 visionImages.add(new VisionImage(optimized.mimeType(), base64));
             }
 
-            // 3) Call OpenAI
             ExpiryResult result = openAIClient.callVision(visionImages);
 
-            // 3.1) If no package, estimate expiry using conservative rules
             applyNoPackageEstimation(result);
 
-            // 4) Decision
             String expiryDate = result.getExpiryDate();
             String dateType = result.getDateType();
             String imageQuality = result.getImageQuality();
             double confidence = result.getConfidence();
 
             boolean productAccepted =
-                    result.getProductName() != null && result.getProductNameConfidence() >= 0.75;
+                    result.getProductName() != null &&
+                            result.getProductNameConfidence() >= 0.75;
 
             ExpiryDecisionEngine.Decision decision =
                     decisionEngine.decide(expiryDate, dateType, imageQuality, confidence);
@@ -80,13 +78,23 @@ public class ScanExpiryService {
             result.setSuggestedAction(decision.getSuggestedAction());
             result.setProductNameAccepted(productAccepted);
 
+            // sanitize rejected results
+            if ("REJECTED".equals(decision.getStatus())) {
+
+                result.setExpiryDate("UNKNOWN");
+                result.setDateType("UNKNOWN");
+                result.setConfidence(0.0);
+
+            }
+
             return result;
 
         } catch (Exception e) {
+
             log.warn("SCAN EXPIRY FAILED", e);
 
-            // Sprint 2/Sprint 3 safe fallback: do not crash request
             ExpiryResult fallback = new ExpiryResult();
+
             fallback.setExpiryDate("UNKNOWN");
             fallback.setDateType("UNKNOWN");
             fallback.setImageQuality("UNKNOWN");
@@ -97,7 +105,6 @@ public class ScanExpiryService {
             fallback.setConfidence(0.0);
             fallback.setProductName(null);
             fallback.setProductNameConfidence(0.0);
-
             fallback.setStatus("REJECTED");
             fallback.setReason("AI_ERROR");
             fallback.setSuggestedAction("ASK_USER_RESCAN");
@@ -108,37 +115,43 @@ public class ScanExpiryService {
     }
 
     private void applyNoPackageEstimation(ExpiryResult result) {
+
         if (result == null) return;
 
         String pkg = safeUpper(result.getPackagePresent());
         String quality = safeUpper(result.getImageQuality());
 
-        // If image is blurry, don't try to estimate from it.
         if ("BLURRY".equals(quality)) return;
 
         if (!"NO".equals(pkg)) return;
 
-        int aiDays = (result.getEstimatedShelfLifeDays() == null) ? 0 : result.getEstimatedShelfLifeDays();
-        int ruleDays = ShelfLifeRules.estimateDays(result.getItemCategory(), result.getFreshnessState());
+        int aiDays = (result.getEstimatedShelfLifeDays() == null)
+                ? 0
+                : result.getEstimatedShelfLifeDays();
+
+        int ruleDays =
+                ShelfLifeRules.estimateDays(result.getItemCategory(), result.getFreshnessState());
 
         int days = (ruleDays > 0) ? ruleDays : aiDays;
 
-        // Hard safety caps (avoid crazy estimates)
         String cat = safeUpper(result.getItemCategory());
         int max = ("FROZEN".equals(cat)) ? 90 : 30;
 
         if (days <= 0 || days > max) {
+
             result.setExpiryDate("UNKNOWN");
             result.setDateType("UNKNOWN");
             result.setConfidence(0.0);
+
             return;
         }
 
-        LocalDate estimated = LocalDate.now(ZoneId.systemDefault()).plusDays(days);
+        LocalDate estimated =
+                LocalDate.now(ZoneId.systemDefault()).plusDays(days);
+
         result.setExpiryDate(estimated.toString());
         result.setDateType("ESTIMATED");
 
-        // Force below 0.6 (never auto-accept)
         result.setConfidence(Math.min(result.getConfidence(), 0.59));
         result.setEstimatedShelfLifeDays(days);
     }

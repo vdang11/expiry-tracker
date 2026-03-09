@@ -21,7 +21,6 @@ public class OpenAIClient {
 
     private static final String MODEL = "gpt-4.1-mini";
 
-    // Tách prompt ra constant để dễ maintain
     private static final String PROMPT = """
             You are extracting information from one or more images of the SAME food product package.
             Different images may show different sides of the package.
@@ -49,7 +48,67 @@ public class OpenAIClient {
 
             If a keyword is found, read the nearby date.
             The date may appear above, below, or next to the keyword.
-
+            
+            Only extract a date if ALL conditions are true:
+            
+            1. A clear expiry keyword is visible.
+            2. A readable date appears next to that keyword.
+            3. The characters forming the date are visually distinguishable.
+            
+            Do NOT guess numbers.
+            
+            Do NOT invent missing digits.
+            
+            Do NOT attempt to "complete" blurry numbers.
+            
+            If the printed characters are dot-matrix and unclear,
+            you must return UNKNOWN.
+            
+            --------------------------------
+            DOT MATRIX PRINT RULE
+            --------------------------------
+            
+            Many expiry dates are printed with dot-matrix ink.
+            
+            If the dot-matrix characters are:
+            
+            - incomplete
+            - partially missing
+            - merged together
+            - visually ambiguous
+            
+            You must treat the date as unreadable.
+            
+            Return:
+            
+            expiryDate="UNKNOWN"
+            imageQuality="BLURRY"
+            confidence=0.0
+            
+            Do NOT estimate the numbers.
+            
+            --------------------------------
+            VALID DATE PATTERNS
+            --------------------------------
+            
+            Common formats used in Australian packaging include:
+            
+            DD/MM/YYYY
+            DD/MM/YY
+            YYYY-MM-DD
+            DD MON YY
+            DD MON YYYY
+            DayMonthYear format such as:
+            12JAN26
+            27MAR2026
+            
+            Examples:
+            
+            USE BY 27 MAR 26
+            BEST BEFORE 12/09/2025
+            BBE 2026-03-27
+            EXP 15 JAN 25
+            
             STEP 3 — ONLY AFTER EXPIRY CHECK
 
             Identify the FOOD PRODUCT NAME on the packaging.
@@ -58,7 +117,7 @@ public class OpenAIClient {
             IMPORTANT SAFETY RULES
             --------------------------------
 
-            - Do NOT guess a random expiry date.
+            - Do NOT guess a random expiry date if there are many numbers in the photo.
             - If the expiry text is unreadable/blurry, return UNKNOWN and set imageQuality="BLURRY".
 
             --------------------------------
@@ -77,7 +136,7 @@ public class OpenAIClient {
               "productName": "string or null",
               "productNameConfidence": 0.0
             }
-
+            
             --------------------------------
             EXPIRY RULES
             --------------------------------
