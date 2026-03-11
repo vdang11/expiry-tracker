@@ -1,10 +1,11 @@
 package com.example.expiry.service;
 
-import com.example.expiry.domain.InvalidImageException;
 import com.example.expiry.dto.ExpiryResult;
+import com.example.expiry.exception.InvalidImageException;
 import com.example.expiry.infrastructure.ai.OpenAIClient;
 import com.example.expiry.infrastructure.ai.VisionImage;
 import com.example.expiry.infrastructure.image.ImageOptimizer;
+import com.example.expiry.infrastructure.image.ImageValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

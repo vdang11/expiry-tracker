@@ -1,6 +1,6 @@
 package com.example.expiry.controller;
 
-import com.example.expiry.domain.InvalidImageException;
+import com.example.expiry.exception.InvalidImageException;
 import com.example.expiry.dto.ApiErrorResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;

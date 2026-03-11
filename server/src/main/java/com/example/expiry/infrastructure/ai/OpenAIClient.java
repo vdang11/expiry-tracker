@@ -1,6 +1,6 @@
 package com.example.expiry.infrastructure.ai;
 
-import com.example.expiry.domain.ProductNameNormalizer;
+import com.example.expiry.service.ProductNameNormalizer;
 import com.example.expiry.dto.ExpiryResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;

@@ -1,4 +1,4 @@
-package com.example.expiry.domain;
+package com.example.expiry.service;
 
 import java.util.Locale;
 import java.util.regex.Pattern;

@@ -1,6 +1,6 @@
-package com.example.expiry.service;
+package com.example.expiry.infrastructure.image;
 
-import com.example.expiry.domain.InvalidImageException;
+import com.example.expiry.exception.InvalidImageException;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;

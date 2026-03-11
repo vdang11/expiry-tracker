@@ -1,4 +1,4 @@
-package com.example.expiry.domain;
+package com.example.expiry.exception;
 
 public class InvalidImageException extends RuntimeException {
 
