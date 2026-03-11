@@ -3,36 +3,48 @@ import { useNavigate, useOutletContext } from "react-router-dom";
 import { api } from "../data/mockApi";
 
 export default function Dashboard() {
-  const { search } = useOutletContext();
+
   const navigate = useNavigate();
+
+  const ctx = useOutletContext() || {};
+  const search = ctx.search || "";
+
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
 
-  const currentUser = (() => {
+  const currentUser = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem("currentUser"));
+      const raw = localStorage.getItem("currentUser");
+      return raw ? JSON.parse(raw) : null;
     } catch {
       return null;
     }
-  })();
+  }, []);
 
+  // redirect nếu chưa login
   useEffect(() => {
     if (!currentUser) {
       navigate("/login", { replace: true });
-      return;
     }
   }, [currentUser, navigate]);
 
+  // load items
   useEffect(() => {
+
     if (!currentUser) return;
 
     let alive = true;
 
     (async () => {
       try {
+
         const data = await api.getItems();
-        if (alive) setItems(data);
+
+        if (alive) {
+          setItems(data || []);
+        }
+
       } finally {
         if (alive) setLoading(false);
       }
@@ -41,50 +53,81 @@ export default function Dashboard() {
     return () => {
       alive = false;
     };
+
   }, [currentUser]);
 
+  // summary
   const summary = useMemo(() => {
+
     let expired = 0;
     let soon = 0;
     let ok = 0;
 
     for (const it of items) {
-      if (it.expiryStatus === "EXPIRED") expired++;
-      else if (it.expiryStatus === "EXPIRING_SOON") soon++;
-      else ok++;
+
+      if (it?.expiryStatus === "EXPIRED") expired++;
+
+      else if (it?.expiryStatus === "EXPIRING_SOON") soon++;
+
+      else if (it?.expiryStatus === "OK") ok++;
+
     }
 
     return { expired, soon, ok };
+
   }, [items]);
 
+  // filtering
   const filteredItems = useMemo(() => {
-    let list = items;
 
-    if (search.trim()) {
+    let list = [...items];
+
+    // search
+    if (search && search.trim()) {
+
       const q = search.toLowerCase();
-      list = list.filter((it) => it.name.toLowerCase().includes(q));
+
+      list = list.filter((it) => {
+
+        const name = (it?.name || "").toLowerCase();
+
+        return name.includes(q);
+
+      });
+
     }
 
+    // filter status
     if (filter !== "all") {
+
       list = list.filter((it) => {
-        if (filter === "expired") return it.expiryStatus === "EXPIRED";
-        if (filter === "soon") return it.expiryStatus === "EXPIRING_SOON";
-        if (filter === "ok") return it.expiryStatus === "OK";
+
+        if (filter === "expired") return it?.expiryStatus === "EXPIRED";
+
+        if (filter === "soon") return it?.expiryStatus === "EXPIRING_SOON";
+
+        if (filter === "ok") return it?.expiryStatus === "OK";
+
         return true;
+
       });
+
     }
 
     return list;
+
   }, [items, search, filter]);
 
-  if (!currentUser) {
-    return null;
-  }
-
   return (
+
     <div className="space-y-4">
+
+      {/* header */}
       <div className="flex justify-between items-center p-2">
-        <h2 className="text-lg font-semibold">Expiry Overview</h2>
+
+        <h2 className="text-lg font-semibold">
+          Expiry Overview
+        </h2>
 
         <button
           onClick={() => navigate("/add")}
@@ -92,9 +135,12 @@ export default function Dashboard() {
         >
           + Add
         </button>
+
       </div>
 
+      {/* summary cards */}
       <div className="grid grid-cols-3 gap-3">
+
         <SummaryCard
           label="Expired"
           value={summary.expired}
@@ -102,6 +148,7 @@ export default function Dashboard() {
           tone="danger"
           onClick={() => setFilter("expired")}
         />
+
         <SummaryCard
           label="Expiring soon"
           value={summary.soon}
@@ -109,6 +156,7 @@ export default function Dashboard() {
           tone="warn"
           onClick={() => setFilter("soon")}
         />
+
         <SummaryCard
           label="OK"
           value={summary.ok}
@@ -116,24 +164,33 @@ export default function Dashboard() {
           tone="neutral"
           onClick={() => setFilter("ok")}
         />
+
       </div>
 
+      {/* filter pills */}
       <div className="flex flex-wrap gap-2">
+
         <Pill active={filter === "all"} onClick={() => setFilter("all")}>
           All
         </Pill>
+
         <Pill active={filter === "expired"} onClick={() => setFilter("expired")}>
           Expired
         </Pill>
+
         <Pill active={filter === "soon"} onClick={() => setFilter("soon")}>
           Expiring soon
         </Pill>
+
         <Pill active={filter === "ok"} onClick={() => setFilter("ok")}>
           OK
         </Pill>
+
       </div>
 
+      {/* list */}
       <div className="space-y-3">
+
         {loading && (
           <div className="rounded-2xl border border-line bg-card p-4 text-muted">
             Loading items...
@@ -148,32 +205,47 @@ export default function Dashboard() {
 
         {!loading &&
           filteredItems.map((it) => (
+
             <button
-              key={it.id}
-              onClick={() => navigate(`/items/${it.id}`)}
+              key={it?.id}
+              onClick={() => navigate(`/items/${it?.id}`)}
               className="w-full rounded-2xl border border-line bg-card p-4 text-left transition hover:border-accent/50"
             >
+
               <div className="flex items-start justify-between gap-3">
+
                 <div>
-                  <div className="text-base font-semibold">{it.name}</div>
-                  <div className="mt-1 text-sm text-muted">
-                    Exp: {it.effectiveExpiry || "—"}
+
+                  <div className="text-base font-semibold">
+                    {it?.name || "Unknown item"}
                   </div>
+
+                  <div className="mt-1 text-sm text-muted">
+                    Exp: {it?.effectiveExpiry || "—"}
+                  </div>
+
                 </div>
 
                 <StatusBadge
-                  status={it.expiryStatus}
-                  daysLeft={it.daysLeft}
+                  status={it?.expiryStatus}
+                  daysLeft={it?.daysLeft}
                 />
+
               </div>
+
             </button>
+
           ))}
+
       </div>
+
     </div>
+
   );
 }
 
 function SummaryCard({ label, value, active, tone, onClick }) {
+
   const toneClass =
     tone === "danger"
       ? "text-red-300"
@@ -191,8 +263,14 @@ function SummaryCard({ label, value, active, tone, onClick }) {
           : "border-line hover:border-accent/40")
       }
     >
-      <div className={`text-2xl font-bold ${toneClass}`}>{value}</div>
-      <div className="mt-1 text-sm text-muted">{label}</div>
+      <div className={`text-2xl font-bold ${toneClass}`}>
+        {value}
+      </div>
+
+      <div className="mt-1 text-sm text-muted">
+        {label}
+      </div>
+
     </button>
   );
 }
@@ -214,6 +292,7 @@ function Pill({ active, onClick, children }) {
 }
 
 function StatusBadge({ status, daysLeft }) {
+
   if (status === "EXPIRED") {
     return (
       <span className="rounded-full border border-red-400/40 px-2 py-1 text-xs text-red-300">
@@ -225,7 +304,7 @@ function StatusBadge({ status, daysLeft }) {
   if (status === "EXPIRING_SOON") {
     return (
       <span className="rounded-full border border-yellow-400/40 px-2 py-1 text-xs text-yellow-200">
-        {daysLeft}d
+        {(daysLeft ?? "?")}d
       </span>
     );
   }
