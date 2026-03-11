@@ -81,7 +81,7 @@ export default function AddItem() {
       previewRef.current.forEach((url) => {
         try {
           URL.revokeObjectURL(url);
-        } catch {}
+        } catch { }
       });
     };
   }, []);
@@ -141,7 +141,7 @@ export default function AddItem() {
     if (url) {
       try {
         URL.revokeObjectURL(url);
-      } catch {}
+      } catch { }
     }
 
     const updatedFiles = imageFiles.filter((_, i) => i !== index);
@@ -190,14 +190,14 @@ export default function AddItem() {
 
       try {
         data = await response.json();
-      } catch {}
+      } catch { }
 
       if (!response.ok) {
 
         const message =
           data?.message ||
           data?.error ||
-          "Scan failed.";
+          "Scan failed. Please try again.";
 
         toast.error(message);
         return;
@@ -229,7 +229,7 @@ export default function AddItem() {
     } catch (err) {
 
       console.error(err);
-      toast.error("Scan failed.");
+      toast.error("Cannot reach server. Please try again.");
 
     } finally {
 
@@ -301,7 +301,7 @@ export default function AddItem() {
       imagePreviews.forEach((url) => {
         try {
           URL.revokeObjectURL(url);
-        } catch {}
+        } catch { }
       });
 
       setImageFiles([]);
