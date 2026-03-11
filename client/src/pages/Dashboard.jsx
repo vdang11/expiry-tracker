@@ -1,8 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useOutletContext } from "react-router-dom";
 import { api } from "../data/mockApi";
-import { useOutletContext } from "react-router-dom";
-import { LogOut } from "lucide-react";
 
 export default function Dashboard() {
   const { search } = useOutletContext();
@@ -10,17 +8,25 @@ export default function Dashboard() {
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
-  const currentUser = JSON.parse(localStorage.getItem("currentUser"));
 
+  const currentUser = (() => {
+    try {
+      return JSON.parse(localStorage.getItem("currentUser"));
+    } catch {
+      return null;
+    }
+  })();
 
   useEffect(() => {
-  if (!currentUser) {
-    navigate("/login", { replace: true });
-  }
-}, [currentUser]);
+    if (!currentUser) {
+      navigate("/login", { replace: true });
+      return;
+    }
+  }, [currentUser, navigate]);
 
-  const initials = currentUser.username[0].toUpperCase();
   useEffect(() => {
+    if (!currentUser) return;
+
     let alive = true;
 
     (async () => {
@@ -35,9 +41,8 @@ export default function Dashboard() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [currentUser]);
 
-  // 🔢 Summary counts
   const summary = useMemo(() => {
     let expired = 0;
     let soon = 0;
@@ -52,15 +57,12 @@ export default function Dashboard() {
     return { expired, soon, ok };
   }, [items]);
 
-  // 🔍 Filtered list
   const filteredItems = useMemo(() => {
     let list = items;
 
     if (search.trim()) {
       const q = search.toLowerCase();
-      list = list.filter((it) =>
-        it.name.toLowerCase().includes(q)
-      );
+      list = list.filter((it) => it.name.toLowerCase().includes(q));
     }
 
     if (filter !== "all") {
@@ -75,11 +77,12 @@ export default function Dashboard() {
     return list;
   }, [items, search, filter]);
 
+  if (!currentUser) {
+    return null;
+  }
+
   return (
     <div className="space-y-4">
-      {/* Header */}
-
-      {/* Top right user section */}
       <div className="flex justify-between items-center p-2">
         <h2 className="text-lg font-semibold">Expiry Overview</h2>
 
@@ -90,7 +93,7 @@ export default function Dashboard() {
           + Add
         </button>
       </div>
-      {/* 🧮 Summary bar */}
+
       <div className="grid grid-cols-3 gap-3">
         <SummaryCard
           label="Expired"
@@ -115,7 +118,6 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Filter pills */}
       <div className="flex flex-wrap gap-2">
         <Pill active={filter === "all"} onClick={() => setFilter("all")}>
           All
@@ -131,7 +133,6 @@ export default function Dashboard() {
         </Pill>
       </div>
 
-      {/* Content */}
       <div className="space-y-3">
         {loading && (
           <div className="rounded-2xl border border-line bg-card p-4 text-muted">
@@ -171,8 +172,6 @@ export default function Dashboard() {
     </div>
   );
 }
-
-/* ---------------- UI helpers ---------------- */
 
 function SummaryCard({ label, value, active, tone, onClick }) {
   const toneClass =

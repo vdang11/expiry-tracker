@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { api } from "../data/mockApi";
 import { CalendarDaysIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
@@ -41,7 +41,9 @@ const UNIT_GROUPS = [
     options: [{ value: "bunch", label: "Bunch" }]
   }
 ];
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 export default function AddItem() {
 
@@ -59,6 +61,8 @@ export default function AddItem() {
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
 
+  const previewRef = useRef([]);
+
   const [detecting, setDetecting] = useState(false);
 
   const [scanMessage, setScanMessage] = useState("");
@@ -66,6 +70,21 @@ export default function AddItem() {
 
   const [needsReview, setNeedsReview] = useState(false);
   const [productNameAccepted, setProductNameAccepted] = useState(true);
+
+  useEffect(() => {
+    previewRef.current = imagePreviews;
+  }, [imagePreviews]);
+
+  // cleanup objectURL khi component unmount
+  useEffect(() => {
+    return () => {
+      previewRef.current.forEach((url) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {}
+      });
+    };
+  }, []);
 
   function todayISO() {
     const now = new Date();
@@ -76,6 +95,8 @@ export default function AddItem() {
   const today = todayISO();
 
   function handleImageChange(e) {
+
+    if (detecting) return;
 
     const files = Array.from(e.target.files || []);
     if (!files.length) return;
@@ -96,15 +117,12 @@ export default function AddItem() {
       );
     });
 
-    const updatedFiles = [...imageFiles, ...uniqueFiles];
-
-    setImageFiles(updatedFiles);
-
-    const previews = updatedFiles.map((file) =>
+    const newPreviews = uniqueFiles.map((file) =>
       URL.createObjectURL(file)
     );
 
-    setImagePreviews(previews);
+    setImageFiles((prev) => [...prev, ...uniqueFiles]);
+    setImagePreviews((prev) => [...prev, ...newPreviews]);
 
     setScanMessage("");
     setScanStatus("idle");
@@ -115,6 +133,16 @@ export default function AddItem() {
   }
 
   function removeImage(index) {
+
+    if (detecting) return;
+
+    const url = imagePreviews[index];
+
+    if (url) {
+      try {
+        URL.revokeObjectURL(url);
+      } catch {}
+    }
 
     const updatedFiles = imageFiles.filter((_, i) => i !== index);
     const updatedPreviews = imagePreviews.filter((_, i) => i !== index);
@@ -150,19 +178,30 @@ export default function AddItem() {
         formData.append("images", file)
       );
 
-      const response = await fetch(`${API_BASE}/api/vision/scan`,
+      const response = await fetch(
+        `${API_BASE}/api/vision/scan`,
         {
           method: "POST",
           body: formData
         }
       );
 
+      let data = null;
+
+      try {
+        data = await response.json();
+      } catch {}
+
       if (!response.ok) {
-        toast.error("Scan failed.");
+
+        const message =
+          data?.message ||
+          data?.error ||
+          "Scan failed.";
+
+        toast.error(message);
         return;
       }
-
-      const data = await response.json();
 
       if (data.productName && data.productName.trim()) {
         setName(data.productName.trim());
@@ -253,9 +292,17 @@ export default function AddItem() {
 
   function switchMode(next) {
 
+    if (detecting) return;
+
     setMode(next);
 
     if (next !== "scan") {
+
+      imagePreviews.forEach((url) => {
+        try {
+          URL.revokeObjectURL(url);
+        } catch {}
+      });
 
       setImageFiles([]);
       setImagePreviews([]);
@@ -308,7 +355,14 @@ export default function AddItem() {
             Take photos of the product and expiry date
           </p>
 
-          <label className="flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-semibold text-black cursor-pointer">
+          <label
+            className={
+              "flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-black " +
+              (detecting
+                ? "bg-gray-400 cursor-not-allowed"
+                : "bg-accent cursor-pointer")
+            }
+          >
             📷 Take Photo
             <input
               type="file"
@@ -317,6 +371,7 @@ export default function AddItem() {
               multiple
               onChange={handleImageChange}
               className="hidden"
+              disabled={detecting}
             />
           </label>
 
@@ -331,8 +386,9 @@ export default function AddItem() {
                   />
 
                   <button
+                    disabled={detecting}
                     onClick={() => removeImage(index)}
-                    className="absolute top-1 right-1 bg-black/70 text-white text-xs px-2 py-1 rounded-lg"
+                    className="absolute top-1 right-1 bg-black/70 text-white text-xs px-2 py-1 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
                   >
                     ✕
                   </button>
