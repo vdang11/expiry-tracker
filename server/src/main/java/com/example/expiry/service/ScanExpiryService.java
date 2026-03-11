@@ -1,5 +1,6 @@
 package com.example.expiry.service;
 
+import com.example.expiry.domain.InvalidImageException;
 import com.example.expiry.dto.ExpiryResult;
 import com.example.expiry.infrastructure.ai.OpenAIClient;
 import com.example.expiry.infrastructure.ai.VisionImage;
@@ -39,14 +40,13 @@ public class ScanExpiryService {
     }
 
     public ExpiryResult scan(List<MultipartFile> images) {
+
+        imageValidator.validateAll(images);
+
         try {
-
-            imageValidator.validateAll(images);
-
             List<VisionImage> visionImages = new ArrayList<>();
 
             for (MultipartFile file : images) {
-
                 byte[] originalBytes = file.getBytes();
 
                 ImageOptimizer.OptimizedImage optimized =
@@ -80,21 +80,20 @@ public class ScanExpiryService {
 
             // sanitize rejected results
             if ("REJECTED".equals(decision.getStatus())) {
-
                 result.setExpiryDate("UNKNOWN");
                 result.setDateType("UNKNOWN");
                 result.setConfidence(0.0);
-
             }
 
             return result;
 
-        } catch (Exception e) {
+        } catch (InvalidImageException e) {
+            throw e;
 
+        } catch (Exception e) {
             log.warn("SCAN EXPIRY FAILED", e);
 
             ExpiryResult fallback = new ExpiryResult();
-
             fallback.setExpiryDate("UNKNOWN");
             fallback.setDateType("UNKNOWN");
             fallback.setImageQuality("UNKNOWN");
@@ -115,14 +114,12 @@ public class ScanExpiryService {
     }
 
     private void applyNoPackageEstimation(ExpiryResult result) {
-
         if (result == null) return;
 
         String pkg = safeUpper(result.getPackagePresent());
         String quality = safeUpper(result.getImageQuality());
 
         if ("BLURRY".equals(quality)) return;
-
         if (!"NO".equals(pkg)) return;
 
         int aiDays = (result.getEstimatedShelfLifeDays() == null)
@@ -138,11 +135,9 @@ public class ScanExpiryService {
         int max = ("FROZEN".equals(cat)) ? 90 : 30;
 
         if (days <= 0 || days > max) {
-
             result.setExpiryDate("UNKNOWN");
             result.setDateType("UNKNOWN");
             result.setConfidence(0.0);
-
             return;
         }
 
@@ -151,7 +146,6 @@ public class ScanExpiryService {
 
         result.setExpiryDate(estimated.toString());
         result.setDateType("ESTIMATED");
-
         result.setConfidence(Math.min(result.getConfidence(), 0.59));
         result.setEstimatedShelfLifeDays(days);
     }

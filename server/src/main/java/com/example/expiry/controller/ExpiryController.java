@@ -34,7 +34,7 @@ public class ExpiryController {
 
         boolean needsUserReview = "REVIEW".equals(status);
 
-        String message = buildMessage(result, expiryDate, needsUserReview);
+        String message = buildMessage(result, needsUserReview);
 
         return new ScanResponse(
                 productName,
@@ -45,7 +45,7 @@ public class ExpiryController {
         );
     }
 
-    private String buildMessage(ExpiryResult result, String expiryDate, boolean needsUserReview) {
+    private String buildMessage(ExpiryResult result, boolean needsUserReview) {
 
         String status = result.getStatus() == null ? "" : result.getStatus();
         String reason = result.getReason() == null ? "" : result.getReason();
