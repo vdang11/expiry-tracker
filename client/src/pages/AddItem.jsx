@@ -75,7 +75,6 @@ export default function AddItem() {
     previewRef.current = imagePreviews;
   }, [imagePreviews]);
 
-  // cleanup objectURL khi component unmount
   useEffect(() => {
     return () => {
       previewRef.current.forEach((url) => {
@@ -245,7 +244,6 @@ export default function AddItem() {
     (mode === "manual" || imageFiles.length > 0);
 
   async function handleSave() {
-
     const trimmedName = name.trim();
 
     if (!trimmedName) {
@@ -273,21 +271,37 @@ export default function AddItem() {
       return;
     }
 
-    await api.createItem({
-      name: trimmedName,
-      purchaseDate,
-      expiryDate: expiryDate || null,
-      estimatedExpiryDate: null,
-      quantity,
-      unit,
-      category: "OTHER",
-      storageType: "FRIDGE",
-      source: mode === "scan" ? "scan" : "manual"
-    });
+    const payload = {
+      productName: trimmedName,
+      expiryDate: expiryDate,
+      confidence: 1.0,
+      dateType: "CONFIRMED",
+      status: "CONFIRMED",
+      suggestedAction: "KEEP"
+    };
 
-    toast.success("Item saved!");
+    try {
+      const response = await fetch(`${API_BASE}/api/products`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
 
-    navigate("/");
+      const data = await response.json();
+
+      if (!response.ok) {
+        toast.error(data.message || data.error || "Save failed.");
+        return;
+      }
+
+      toast.success("Item saved to database!");
+      navigate("/");
+    } catch (error) {
+      console.error(error);
+      toast.error("Cannot reach server.");
+    }
   }
 
   function switchMode(next) {
