@@ -2,7 +2,7 @@ package com.example.expiry.service;
 
 import com.example.expiry.dto.ProductResponse;
 import com.example.expiry.dto.SaveProductRequest;
-import com.example.expiry.entity.Product;
+import com.example.expiry.entity.Item;
 import com.example.expiry.repository.ProductRepository;
 import org.springframework.stereotype.Service;
 
@@ -25,24 +25,24 @@ public class ProductService {
 
         LocalDate normalizedDate = expiryDateNormalizer.normalize(request.getExpiryDate());
 
-        Product product = new Product();
-        product.setProductName(request.getProductName().trim());
-        product.setExpiryDate(normalizedDate);
-        product.setConfidence(request.getConfidence());
-        product.setDateType(request.getDateType());
-        product.setDecisionStatus(request.getStatus());
-        product.setSuggestedAction(request.getSuggestedAction());
+        Item item = new Item();
+        item.setProductName(request.getProductName().trim());
+        item.setExpiryDate(normalizedDate);
+        item.setConfidence(request.getConfidence());
+        item.setDateType(request.getDateType());
+        item.setDecisionStatus(request.getStatus());
+        item.setSuggestedAction(request.getSuggestedAction());
 
-        Product savedProduct = productRepository.save(product);
+        Item savedItem = productRepository.save(item);
 
         return new ProductResponse(
-                savedProduct.getId(),
-                savedProduct.getProductName(),
-                savedProduct.getExpiryDate().toString(),
-                savedProduct.getConfidence(),
-                savedProduct.getDateType(),
-                savedProduct.getDecisionStatus(),
-                savedProduct.getSuggestedAction()
+                savedItem.getId(),
+                savedItem.getProductName(),
+                savedItem.getExpiryDate().toString(),
+                savedItem.getConfidence(),
+                savedItem.getDateType(),
+                savedItem.getDecisionStatus(),
+                savedItem.getSuggestedAction()
         );
     }
 
@@ -52,7 +52,7 @@ public class ProductService {
         }
 
         if (request.getProductName() == null || request.getProductName().isBlank()) {
-            throw new IllegalArgumentException("Product name is required.");
+            throw new IllegalArgumentException("Item name is required.");
         }
 
         if (request.getStatus() == null || !"CONFIRMED".equalsIgnoreCase(request.getStatus())) {

@@ -22,7 +22,7 @@ public class OpenAIClient {
     private static final String MODEL = "gpt-4.1-mini";
 
     private static final String PROMPT = """
-            You are extracting information from one or more images of the SAME food product package.
+            You are extracting information from one or more images of the SAME food item package.
             Different images may show different sides of the package.
 
             IMPORTANT: Combine information across all images before answering.
@@ -179,7 +179,7 @@ public class OpenAIClient {
             PRODUCT NAME RULES
             --------------------------------
 
-            - productName: short food product name only.
+            - productName: short food item name only.
             - Ignore weight, nutrition, expiry text, slogans.
             - If not found → return null.
             - productNameConfidence between 0.0 and 1.0
