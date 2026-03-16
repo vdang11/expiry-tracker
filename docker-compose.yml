@@ -1,0 +1,44 @@
+services:
+
+  mysql:
+    image: mysql:8
+    container_name: expiry-mysql
+    restart: always
+    ports:
+      - "3306:3306"
+
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: expiry_tracker
+
+    volumes:
+      - mysql_data:/var/lib/mysql
+
+  backend:
+    build: ./server
+    container_name: expiry-backend
+    restart: always
+    ports:
+      - "8080:8080"
+
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/expiry_tracker
+      SPRING_DATASOURCE_USERNAME: root
+      SPRING_DATASOURCE_PASSWORD: root
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+
+    depends_on:
+      - mysql
+
+  frontend:
+    build: ./client
+    container_name: expiry-frontend
+    restart: always
+    ports:
+      - "5173:5173"
+
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:
