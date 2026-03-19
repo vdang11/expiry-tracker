@@ -1,41 +1,66 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../layouts/AuthLayout";
-import { login } from "../api/authApi";
 
 export default function Login() {
   const navigate = useNavigate();
-  const [form, setForm] = useState({ username: "", password: "" });
+
+  const [form, setForm] = useState({
+    email: "",
+    password: ""
+  });
+
   const [error, setError] = useState("");
+
   function handleChange(e) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
   }
+
   async function handleLogin(e) {
     e.preventDefault();
     setError("");
 
-    const result = login({
-      username: form.username,
-      password: form.password,
-    });
+    try {
+      const res = await fetch("http://localhost:8080/api/users/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          email: form.email,
+          password: form.password
+        })
+      });
 
-    if (!result.ok) {
-      setError(result.error);
-      return;
+      const user = await res.json();
+
+      if (!res.ok) {
+        setError(user.message || "Login failed");
+        return;
+      }
+
+      // ✅ lưu đúng format
+      localStorage.setItem("currentUser", JSON.stringify({
+        id: user.id,
+        email: user.email
+      }));
+
+      navigate("/");
+    } catch (err) {
+      console.error(err);
+      setError("Cannot connect to server");
     }
-
-    navigate("/");
   }
-
 
   return (
     <AuthLayout title="Welcome back" subtitle="Log in to manage your food items.">
       <form onSubmit={handleLogin} className="space-y-4">
+
         <input
-          name="username"
-          placeholder="Username"
-          value={form.username}
+          name="email"
+          placeholder="Email"
+          value={form.email}
           onChange={handleChange}
           className="w-full rounded-lg px-3 py-2 bg-slate-900 text-white border border-slate-700"
         />

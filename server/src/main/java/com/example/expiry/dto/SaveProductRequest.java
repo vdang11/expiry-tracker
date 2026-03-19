@@ -6,8 +6,9 @@ public class SaveProductRequest {
     private String expiryDate;
     private double confidence;
     private String dateType;
-    private String status;
+    private String decisionStatus;
     private String suggestedAction;
+    private Long userId;
 
     public SaveProductRequest() {
     }
@@ -44,13 +45,9 @@ public class SaveProductRequest {
         this.dateType = dateType;
     }
 
-    public String getStatus() {
-        return status;
-    }
+    public String getDecisionStatus() { return decisionStatus; }
 
-    public void setStatus(String status) {
-        this.status = status;
-    }
+    public void setDecisionStatus(String status) { this.decisionStatus = status; }
 
     public String getSuggestedAction() {
         return suggestedAction;
@@ -59,4 +56,7 @@ public class SaveProductRequest {
     public void setSuggestedAction(String suggestedAction) {
         this.suggestedAction = suggestedAction;
     }
+    public Long getUserId() { return userId; }
+
+    public void setUserId(Long userId) { this.userId = userId; }
 }

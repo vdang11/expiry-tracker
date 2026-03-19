@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../data/mockApi";
+import { api } from "../api/apiClient";
 
 export default function Notifications() {
   const [list, setList] = useState([]);

@@ -1,6 +1,5 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import AppLayout from "./layouts/AppLayout";
-
 import Dashboard from "./pages/Dashboard";
 import MenuSuggestions from "./pages/MenuSuggestions";
 import AddItem from "./pages/AddItem";

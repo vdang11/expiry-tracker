@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../data/mockApi";
+import { api } from "../api/apiClient";
 import { CalendarDaysIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 
@@ -46,7 +46,6 @@ const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 export default function AddItem() {
-
   const navigate = useNavigate();
 
   const [mode, setMode] = useState("scan");
@@ -80,7 +79,7 @@ export default function AddItem() {
       previewRef.current.forEach((url) => {
         try {
           URL.revokeObjectURL(url);
-        } catch { }
+        } catch {}
       });
     };
   }, []);
@@ -94,7 +93,6 @@ export default function AddItem() {
   const today = todayISO();
 
   function handleImageChange(e) {
-
     if (detecting) return;
 
     const files = Array.from(e.target.files || []);
@@ -116,9 +114,7 @@ export default function AddItem() {
       );
     });
 
-    const newPreviews = uniqueFiles.map((file) =>
-      URL.createObjectURL(file)
-    );
+    const newPreviews = uniqueFiles.map((file) => URL.createObjectURL(file));
 
     setImageFiles((prev) => [...prev, ...uniqueFiles]);
     setImagePreviews((prev) => [...prev, ...newPreviews]);
@@ -132,7 +128,6 @@ export default function AddItem() {
   }
 
   function removeImage(index) {
-
     if (detecting) return;
 
     const url = imagePreviews[index];
@@ -140,7 +135,7 @@ export default function AddItem() {
     if (url) {
       try {
         URL.revokeObjectURL(url);
-      } catch { }
+      } catch {}
     }
 
     const updatedFiles = imageFiles.filter((_, i) => i !== index);
@@ -161,7 +156,6 @@ export default function AddItem() {
   }
 
   async function handleScan() {
-
     if (!imageFiles.length) {
       toast.error("Please take at least one photo first.");
       return;
@@ -170,29 +164,22 @@ export default function AddItem() {
     setDetecting(true);
 
     try {
-
       const formData = new FormData();
 
-      imageFiles.forEach((file) =>
-        formData.append("images", file)
-      );
+      imageFiles.forEach((file) => formData.append("images", file));
 
-      const response = await fetch(
-        `${API_BASE}/api/vision/scan`,
-        {
-          method: "POST",
-          body: formData
-        }
-      );
+      const response = await fetch(`${API_BASE}/api/vision/scan`, {
+        method: "POST",
+        body: formData
+      });
 
       let data = null;
 
       try {
         data = await response.json();
-      } catch { }
+      } catch {}
 
       if (!response.ok) {
-
         const message =
           data?.message ||
           data?.error ||
@@ -224,16 +211,11 @@ export default function AddItem() {
       } else {
         setScanStatus("success");
       }
-
     } catch (err) {
-
       console.error(err);
       toast.error("Cannot reach server. Please try again.");
-
     } finally {
-
       setDetecting(false);
-
     }
   }
 
@@ -261,13 +243,26 @@ export default function AddItem() {
       return;
     }
 
-    if (expiryDate && expiryDate < today) {
+    if (!expiryDate) {
+      toast.error("Please select expiry date.");
+      return;
+    }
+
+    if (expiryDate < today) {
       toast.error("Expiry date cannot be in the past.");
       return;
     }
 
-    if (expiryDate && expiryDate < purchaseDate) {
+    if (expiryDate < purchaseDate) {
       toast.error("Expiry date cannot be earlier than purchase date.");
+      return;
+    }
+
+    const raw = localStorage.getItem("currentUser");
+    const currentUser = raw ? JSON.parse(raw) : null;
+
+    if (!currentUser) {
+      toast.error("User not logged in.");
       return;
     }
 
@@ -276,54 +271,37 @@ export default function AddItem() {
       expiryDate: expiryDate,
       confidence: 1.0,
       dateType: "CONFIRMED",
-      status: "CONFIRMED",
-      suggestedAction: "KEEP"
+      decisionStatus: "CONFIRMED",
+      suggestedAction: "KEEP",
+      userId: currentUser.id
     };
 
     try {
-      const response = await fetch(`${API_BASE}/api/products`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        toast.error(data.message || data.error || "Save failed.");
-        return;
-      }
-
-      toast.success("Item saved to database!");
+      await api.saveItem(payload);
+      toast.success("Item added successfully");
       navigate("/");
     } catch (error) {
       console.error(error);
-      toast.error("Cannot reach server.");
+      toast.error(error.message || "Cannot reach server.");
     }
   }
 
   function switchMode(next) {
-
     if (detecting) return;
 
     setMode(next);
 
     if (next !== "scan") {
-
       imagePreviews.forEach((url) => {
         try {
           URL.revokeObjectURL(url);
-        } catch { }
+        } catch {}
       });
 
       setImageFiles([]);
       setImagePreviews([]);
-
       setScanMessage("");
       setScanStatus("idle");
-
       setNeedsReview(false);
       setDetecting(false);
       setProductNameAccepted(true);
@@ -331,7 +309,6 @@ export default function AddItem() {
   }
 
   function messageStyle() {
-
     if (scanStatus === "success") {
       return "bg-green-900/30 border-green-600 text-green-300";
     }
@@ -349,7 +326,6 @@ export default function AddItem() {
 
   return (
     <div className="mx-auto max-w-xl space-y-4">
-
       <h2 className="text-xl font-semibold">Add Item</h2>
 
       <div className="flex gap-2">
@@ -364,7 +340,6 @@ export default function AddItem() {
 
       {mode === "scan" && (
         <div className="rounded-2xl border border-line bg-card p-4 space-y-3">
-
           <p className="text-sm text-muted text-center">
             Take photos of the product and expiry date
           </p>
@@ -416,25 +391,22 @@ export default function AddItem() {
             disabled={detecting || imageFiles.length === 0}
             className="w-full flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
           >
-            {detecting && (
-              <ArrowPathIcon className="h-4 w-4 animate-spin" />
-            )}
-
+            {detecting && <ArrowPathIcon className="h-4 w-4 animate-spin" />}
             {detecting ? "Scanning images..." : "Scan images"}
           </button>
 
           {scanMessage && (
             <div
               className={
-                "rounded-xl p-3 text-sm border text-center " +
-                messageStyle()
+                "rounded-xl p-3 text-sm border text-center " + messageStyle()
               }
             >
               {scanMessage}
 
               {scanStatus === "rejected" && (
                 <p className="text-xs text-red-400 mt-2">
-                  Tip: take a clearer photo and focus closely on the expiry date label.
+                  Tip: take a clearer photo and focus closely on the expiry date
+                  label.
                 </p>
               )}
             </div>
@@ -443,9 +415,7 @@ export default function AddItem() {
       )}
 
       <div className="rounded-2xl border border-line bg-card p-4 space-y-3">
-
         <Field label="Food name">
-
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -458,15 +428,11 @@ export default function AddItem() {
               ⚠ Please verify product name
             </p>
           )}
-
         </Field>
 
         <div className="grid gap-3 sm:grid-cols-2">
-
           <Field label="Purchase date">
-
             <div className="relative">
-
               <input
                 type="date"
                 value={purchaseDate}
@@ -474,17 +440,12 @@ export default function AddItem() {
                 onChange={(e) => setPurchaseDate(e.target.value)}
                 className="w-full rounded-xl border border-line bg-bg px-3 py-2 pr-10 text-sm"
               />
-
               <CalendarDaysIcon className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
-
             </div>
-
           </Field>
 
-          <Field label="Expiry date (optional)">
-
+          <Field label="Expiry date">
             <div className="relative">
-
               <input
                 type="date"
                 value={expiryDate}
@@ -492,9 +453,7 @@ export default function AddItem() {
                 onChange={(e) => setExpiryDate(e.target.value)}
                 className="w-full rounded-xl border border-line bg-bg px-3 py-2 pr-10 text-sm"
               />
-
               <CalendarDaysIcon className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
-
             </div>
 
             {needsReview && (
@@ -502,15 +461,11 @@ export default function AddItem() {
                 ⚠ Please verify expiry date
               </p>
             )}
-
           </Field>
-
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
-
           <Field label="Quantity">
-
             <input
               type="number"
               min="0.1"
@@ -519,17 +474,14 @@ export default function AddItem() {
               onChange={(e) => setQuantity(Number(e.target.value))}
               className="w-full rounded-xl border border-line bg-bg px-3 py-2 text-sm"
             />
-
           </Field>
 
           <Field label="Unit">
-
             <select
               value={unit}
               onChange={(e) => setUnit(e.target.value)}
               className="w-full rounded-xl border border-line bg-bg px-3 py-2 text-sm"
             >
-
               <option value="">Select unit</option>
 
               {UNIT_GROUPS.map((group) => (
@@ -541,11 +493,8 @@ export default function AddItem() {
                   ))}
                 </optgroup>
               ))}
-
             </select>
-
           </Field>
-
         </div>
 
         <button
@@ -555,7 +504,6 @@ export default function AddItem() {
         >
           Save item
         </button>
-
       </div>
     </div>
   );

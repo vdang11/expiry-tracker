@@ -23,7 +23,7 @@ public class ExpiryResult {
     private String freshnessState;      // FRESH, NEW, RIPE, OPENED, COOKED, LEFTOVER, UNKNOWN
     private Integer estimatedShelfLifeDays;
 
-    private double confidence;
+    private double expiryConfidence;
     private String productName;
     private double productNameConfidence;
     private String status;
@@ -35,7 +35,7 @@ public class ExpiryResult {
 
     public ExpiryResult(String expiryDate, double confidence, String productName, double productNameConfidence) {
         this.expiryDate = expiryDate;
-        this.confidence = confidence;
+        this.expiryConfidence = confidence;
         this.productName = productName;
         this.productNameConfidence = productNameConfidence;
     }
@@ -45,7 +45,7 @@ public class ExpiryResult {
         this.expiryDate = expiryDate;
         this.dateType = dateType;
         this.imageQuality = imageQuality;
-        this.confidence = confidence;
+        this.expiryConfidence = confidence;
         this.productName = productName;
         this.productNameConfidence = productNameConfidence;
     }
@@ -60,7 +60,7 @@ public class ExpiryResult {
         this.itemCategory = itemCategory;
         this.freshnessState = freshnessState;
         this.estimatedShelfLifeDays = estimatedShelfLifeDays;
-        this.confidence = confidence;
+        this.expiryConfidence = confidence;
         this.productName = productName;
         this.productNameConfidence = productNameConfidence;
     }
@@ -121,12 +121,12 @@ public class ExpiryResult {
         this.estimatedShelfLifeDays = estimatedShelfLifeDays;
     }
 
-    public double getConfidence() {
-        return confidence;
+    public double getExpiryConfidence() {
+        return expiryConfidence;
     }
 
-    public void setConfidence(double confidence) {
-        this.confidence = confidence;
+    public void setExpiryConfidence(double confidence) {
+        this.expiryConfidence = confidence;
     }
 
     public String getProductName() {

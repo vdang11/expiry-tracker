@@ -5,9 +5,18 @@ import Logo from "../assets/logo.svg";
 export default function TopBar({ search, onSearchChange }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const currentUser = JSON.parse(localStorage.getItem("currentUser"));
+  const currentUser = (() => {
+    try {
+      const raw = localStorage.getItem("currentUser");
+      return raw ? JSON.parse(raw) : null;
+    } catch {
+      return null;
+    }
+  })();
 
-  const initials = currentUser?.username?.[0]?.toUpperCase() || "?";
+  const initial = currentUser?.email
+    ? currentUser.email.charAt(0).toUpperCase()
+    : "?";
 
   const handleLogout = () => {
     localStorage.removeItem("currentUser");
@@ -41,7 +50,7 @@ export default function TopBar({ search, onSearchChange }) {
       {/* User */}
       <div className="flex items-center gap-3 ml-auto">
         <span className="size-6 flex items-center justify-center rounded-full bg-slate-700 text-xs font-medium">
-          {initials}
+          {initial}
         </span>
         <span className="text-xs opacity-80 text-muted">{currentUser?.username}</span>
         <button onClick={handleLogout} className="p-1 rounded-md border border-line hover:border-accent transition">

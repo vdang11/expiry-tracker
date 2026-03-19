@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
-import { api } from "../data/mockApi";
+import { api } from "../api/apiClient";
 
 export default function Dashboard() {
-
   const navigate = useNavigate();
 
   const ctx = useOutletContext() || {};
@@ -12,7 +11,13 @@ export default function Dashboard() {
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [summary, setSummary] = useState({
+    expired: 0,
+    soon: 0,
+    ok: 0
+  });
 
+  // ================= USER =================
   const currentUser = useMemo(() => {
     try {
       const raw = localStorage.getItem("currentUser");
@@ -29,22 +34,21 @@ export default function Dashboard() {
     }
   }, [currentUser, navigate]);
 
-  // load items
+  // ================= LOAD ITEMS =================
   useEffect(() => {
-
     if (!currentUser) return;
 
     let alive = true;
 
     (async () => {
       try {
-
-        const data = await api.getItems();
+        const data = await api.getItems(currentUser.id);
 
         if (alive) {
           setItems(data || []);
         }
-
+      } catch (e) {
+        console.error(e);
       } finally {
         if (alive) setLoading(false);
       }
@@ -53,81 +57,68 @@ export default function Dashboard() {
     return () => {
       alive = false;
     };
-
   }, [currentUser]);
 
-  // summary
-  const summary = useMemo(() => {
+  // ================= LOAD SUMMARY =================
+  useEffect(() => {
+    if (!currentUser) return;
 
-    let expired = 0;
-    let soon = 0;
-    let ok = 0;
+    (async () => {
+      try {
+        const data = await api.getSummary(currentUser.id);
 
-    for (const it of items) {
+        setSummary({
+          expired: data.expired,
+          soon: data.expiringSoon,
+          ok: data.fresh
+        });
+      } catch (e) {
+        console.error(e);
+      }
+    })();
+  }, [currentUser]);
 
-      if (it?.expiryStatus === "EXPIRED") expired++;
-
-      else if (it?.expiryStatus === "EXPIRING_SOON") soon++;
-
-      else if (it?.expiryStatus === "OK") ok++;
-
-    }
-
-    return { expired, soon, ok };
-
-  }, [items]);
-
-  // filtering
+  // ================= FILTERING + =================
   const filteredItems = useMemo(() => {
 
-    let list = [...items];
+    let list = items.filter(it => it?.itemStatus !== "CONSUMED");
 
     // search
     if (search && search.trim()) {
-
       const q = search.toLowerCase();
 
-      list = list.filter((it) => {
-
-        const name = (it?.name || "").toLowerCase();
-
-        return name.includes(q);
-
-      });
-
+      list = list.filter(it =>
+        (it?.productName || "").toLowerCase().includes(q)
+      );
     }
 
-    // filter status
+    // filter
     if (filter !== "all") {
-
-      list = list.filter((it) => {
-
+      list = list.filter(it => {
         if (filter === "expired") return it?.expiryStatus === "EXPIRED";
-
         if (filter === "soon") return it?.expiryStatus === "EXPIRING_SOON";
-
-        if (filter === "ok") return it?.expiryStatus === "OK";
-
+        if (filter === "ok") return it?.expiryStatus === "FRESH";
         return true;
-
       });
-
     }
+
+    // ✅ SORT theo expiryDate (gần nhất trước)
+    list.sort((a, b) => {
+      if (!a.expiryDate) return 1;
+      if (!b.expiryDate) return -1;
+
+      return new Date(a.expiryDate) - new Date(b.expiryDate);
+    });
 
     return list;
 
   }, [items, search, filter]);
 
   return (
-
     <div className="space-y-4">
-
-      {/* header */}
+      {/* ================= HEADER ================= */}
       <div className="flex justify-between items-center p-2">
-
-        <h2 className="text-lg font-semibold">
-          Expiry Overview
-        </h2>
+        <h2 className="text-lg font-semibold">Expiry Overview</h2>
 
         <button
           onClick={() => navigate("/add")}
@@ -135,12 +126,10 @@ export default function Dashboard() {
         >
           + Add
         </button>
-
       </div>
 
-      {/* summary cards */}
+      {/* ================= SUMMARY ================= */}
       <div className="grid grid-cols-3 gap-3">
-
         <SummaryCard
           label="Expired"
           value={summary.expired}
@@ -164,12 +153,10 @@ export default function Dashboard() {
           tone="neutral"
           onClick={() => setFilter("ok")}
         />
-
       </div>
 
-      {/* filter pills */}
+      {/* ================= FILTER PILLS ================= */}
       <div className="flex flex-wrap gap-2">
-
         <Pill active={filter === "all"} onClick={() => setFilter("all")}>
           All
         </Pill>
@@ -185,12 +172,10 @@ export default function Dashboard() {
         <Pill active={filter === "ok"} onClick={() => setFilter("ok")}>
           OK
         </Pill>
-
       </div>
 
-      {/* list */}
+      {/* ================= LIST ================= */}
       <div className="space-y-3">
-
         {loading && (
           <div className="rounded-2xl border border-line bg-card p-4 text-muted">
             Loading items...
@@ -199,53 +184,50 @@ export default function Dashboard() {
 
         {!loading && filteredItems.length === 0 && (
           <div className="rounded-2xl border border-line bg-card p-4 text-muted">
-            Không có thực phẩm phù hợp
+            No matching items
           </div>
         )}
 
         {!loading &&
-          filteredItems.map((it) => (
+          filteredItems.map((it) => {
+            const daysLeft = calculateDaysLeft(it?.expiryDate);
 
-            <button
-              key={it?.id}
-              onClick={() => navigate(`/items/${it?.id}`)}
-              className="w-full rounded-2xl border border-line bg-card p-4 text-left transition hover:border-accent/50"
-            >
+            return (
+              <button
+                key={it?.id}
+                onClick={() => navigate(`/items/${it?.id}`)}
+                className="w-full rounded-2xl border border-line bg-card p-4 text-left transition hover:border-accent/50"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-base font-semibold">
+                      {it?.productName || "Unknown item"}
+                    </div>
 
-              <div className="flex items-start justify-between gap-3">
+                    <div className="mt-1 text-sm text-muted">
+                      Exp: {it?.expiryDate || "—"}
+                    </div>
 
-                <div>
-
-                  <div className="text-base font-semibold">
-                    {it?.name || "Unknown item"}
+                    {/* ✅ NEW: days left */}
+                    <div className="text-xs text-muted">
+                      {formatDaysLeft(daysLeft)}
+                    </div>
                   </div>
 
-                  <div className="mt-1 text-sm text-muted">
-                    Exp: {it?.effectiveExpiry || "—"}
-                  </div>
-
+                  <StatusBadge
+                    expiryStatus={it?.expiryStatus}
+                    itemStatus={it?.itemStatus}
+                  />
                 </div>
-
-                <StatusBadge
-                  status={it?.expiryStatus}
-                  daysLeft={it?.daysLeft}
-                />
-
-              </div>
-
-            </button>
-
-          ))}
-
+              </button>
+            );
+          })}
       </div>
-
     </div>
-
   );
 }
 
 function SummaryCard({ label, value, active, tone, onClick }) {
-
   const toneClass =
     tone === "danger"
       ? "text-red-300"
@@ -263,14 +245,9 @@ function SummaryCard({ label, value, active, tone, onClick }) {
           : "border-line hover:border-accent/40")
       }
     >
-      <div className={`text-2xl font-bold ${toneClass}`}>
-        {value}
-      </div>
+      <div className={`text-2xl font-bold ${toneClass}`}>{value}</div>
 
-      <div className="mt-1 text-sm text-muted">
-        {label}
-      </div>
-
+      <div className="mt-1 text-sm text-muted">{label}</div>
     </button>
   );
 }
@@ -291,9 +268,17 @@ function Pill({ active, onClick, children }) {
   );
 }
 
-function StatusBadge({ status, daysLeft }) {
+function StatusBadge({ expiryStatus, itemStatus }) {
+  // ưu tiên hiển thị consumed
+  if (itemStatus === "CONSUMED") {
+    return (
+      <span className="rounded-full border border-green-400/40 px-2 py-1 text-xs text-green-300">
+        Consumed
+      </span>
+    );
+  }
 
-  if (status === "EXPIRED") {
+  if (expiryStatus === "EXPIRED") {
     return (
       <span className="rounded-full border border-red-400/40 px-2 py-1 text-xs text-red-300">
         Expired
@@ -301,25 +286,39 @@ function StatusBadge({ status, daysLeft }) {
     );
   }
 
-  if (status === "EXPIRING_SOON") {
+  if (expiryStatus === "EXPIRING_SOON") {
     return (
       <span className="rounded-full border border-yellow-400/40 px-2 py-1 text-xs text-yellow-200">
-        {(daysLeft ?? "?")}d
-      </span>
-    );
-  }
-
-  if (status === "CONSUMED") {
-    return (
-      <span className="rounded-full border border-red-400/40 px-2 py-1 text-xs text-red-300">
-        Consumed
+        Expiring soon
       </span>
     );
   }
 
   return (
     <span className="rounded-full border border-line px-2 py-1 text-xs text-muted">
-      OK
+      Fresh
     </span>
   );
+}
+// ================= HELPER =================
+function calculateDaysLeft(expiryDate) {
+  if (!expiryDate) return null;
+
+  const today = new Date();
+  const exp = new Date(expiryDate);
+
+  // normalize về 00:00
+  today.setHours(0, 0, 0, 0);
+  exp.setHours(0, 0, 0, 0);
+
+  const diffMs = exp - today;
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
+}
+
+function formatDaysLeft(days) {
+  if (days === null) return "—";
+
+  if (days < 0) return `Expired ${Math.abs(days)} day(s) ago`;
+  if (days === 0) return "Expires today";
+  return `${days} day(s) left`;
 }

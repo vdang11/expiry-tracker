@@ -1,4 +1,4 @@
-package com.example.expiry.entity;
+package com.example.expiry.model;
 
 import jakarta.persistence.*;
 import java.time.LocalDate;
@@ -11,6 +11,10 @@ public class Item {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    @ManyToOne
+    @JoinColumn(name = "user_id",nullable = false)
+    private User user;
 
     @Column(name = "product_name", nullable = false)
     private String productName;
@@ -36,6 +40,9 @@ public class Item {
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
+    @Column(name = "item_status", nullable = false)
+    private String itemStatus; // ACTIVE | CONSUMED
+
     public Item() {
     }
 
@@ -44,6 +51,9 @@ public class Item {
         LocalDateTime now = LocalDateTime.now();
         this.createdAt = now;
         this.updatedAt = now;
+        if (this.itemStatus == null) {
+            this.itemStatus = "ACTIVE";
+        }
     }
 
     @PreUpdate
@@ -54,6 +64,10 @@ public class Item {
     public Long getId() {
         return id;
     }
+
+    public User getUser() { return user; }
+
+    public void setUser(User user) { this.user = user; }
 
     public String getProductName() {
         return productName;
@@ -110,4 +124,7 @@ public class Item {
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
     }
+    public String getItemStatus() { return itemStatus; }
+
+    public void setItemStatus(String status) { this.itemStatus = status; }
 }

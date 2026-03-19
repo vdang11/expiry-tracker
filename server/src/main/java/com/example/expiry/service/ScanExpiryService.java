@@ -65,14 +65,14 @@ public class ScanExpiryService {
             String expiryDate = result.getExpiryDate();
             String dateType = result.getDateType();
             String imageQuality = result.getImageQuality();
-            double confidence = result.getConfidence();
+            double expiryConfidence = result.getExpiryConfidence();
 
             boolean productAccepted =
                     result.getProductName() != null &&
                             result.getProductNameConfidence() >= 0.75;
 
             ExpiryDecisionEngine.Decision decision =
-                    decisionEngine.decide(expiryDate, dateType, imageQuality, confidence);
+                    decisionEngine.decide(expiryDate, dateType, imageQuality, expiryConfidence);
 
             result.setStatus(decision.getStatus());
             result.setReason(decision.getReason());
@@ -83,7 +83,7 @@ public class ScanExpiryService {
             if ("REJECTED".equals(decision.getStatus())) {
                 result.setExpiryDate("UNKNOWN");
                 result.setDateType("UNKNOWN");
-                result.setConfidence(0.0);
+                result.setExpiryConfidence(0.0);
             }
 
             return result;
@@ -102,7 +102,7 @@ public class ScanExpiryService {
             fallback.setItemCategory("UNKNOWN");
             fallback.setFreshnessState("UNKNOWN");
             fallback.setEstimatedShelfLifeDays(0);
-            fallback.setConfidence(0.0);
+            fallback.setExpiryConfidence(0.0);
             fallback.setProductName(null);
             fallback.setProductNameConfidence(0.0);
             fallback.setStatus("REJECTED");
@@ -138,7 +138,7 @@ public class ScanExpiryService {
         if (days <= 0 || days > max) {
             result.setExpiryDate("UNKNOWN");
             result.setDateType("UNKNOWN");
-            result.setConfidence(0.0);
+            result.setExpiryConfidence(0.0);
             return;
         }
 
@@ -147,7 +147,7 @@ public class ScanExpiryService {
 
         result.setExpiryDate(estimated.toString());
         result.setDateType("ESTIMATED");
-        result.setConfidence(Math.min(result.getConfidence(), 0.59));
+        result.setExpiryConfidence(Math.min(result.getExpiryConfidence(), 0.59));
         result.setEstimatedShelfLifeDays(days);
     }
 
