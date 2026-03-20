@@ -52,7 +52,7 @@ export default function TopBar({ search, onSearchChange }) {
         <span className="size-6 flex items-center justify-center rounded-full bg-slate-700 text-xs font-medium">
           {initial}
         </span>
-        <span className="text-xs opacity-80 text-muted">{currentUser?.username}</span>
+        <span className="text-xs opacity-80 text-muted">{currentUser?.email}</span>
         <button onClick={handleLogout} className="p-1 rounded-md border border-line hover:border-accent transition">
           <LogOut size={14} />
         </button>

@@ -1,15 +1,30 @@
 import { useEffect, useState } from "react";
-import { api } from "../api/apiClient";
-
 export default function Notifications() {
   const [list, setList] = useState([]);
 
   useEffect(() => {
-    api.getNotifications().then(setList);
+    async function load() {
+      try {
+        const fake = [
+          {
+            id: 1,
+            message: "Milk is expiring soon",
+            type: "SOON",
+            date: "2026-03-20"
+          }
+        ];
+
+        setList(fake);
+      } catch (e) {
+        console.error(e);
+        setList([]);
+      }
+    }
+
+    load();
   }, []);
 
-   async function handleClear() {
-    await api.clearNotifications();
+  function handleClear() {
     setList([]);
   }
 
@@ -31,7 +46,8 @@ export default function Notifications() {
           Không có thông báo
         </div>
       )}
-        <div className="flex gap-2">
+
+      <div className="flex gap-2">
         <button
           onClick={handleClear}
           className="flex-1 rounded-xl border border-red-400/40 bg-card px-4 py-2 text-sm font-semibold text-red-300"

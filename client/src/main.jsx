@@ -9,7 +9,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <HashRouter>
       <App />
-      {/*  <Toaster
+      <Toaster
         position="top-center"
         gutter={8}
         toastOptions={{
@@ -24,30 +24,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
             maxWidth: "420px"
           }
         }}
-      /> */}
-      <Toaster
-        position="top-center"
-        toastOptions={{
-          duration: 2500,
-          style: {
-            background: "#1e293b",
-            color: "#fff",
-            border: "1px solid rgba(148, 163, 184, 0.25)"
-          },
-          success: {
-            iconTheme: {
-              primary: "#22c55e",
-              secondary: "#fff"
-            }
-          },
-          error: {
-            iconTheme: {
-              primary: "#ef4444",
-              secondary: "#fff"
-            }
-          }
-        }}
-      />
+      /> 
     </HashRouter>
   </React.StrictMode>
 );

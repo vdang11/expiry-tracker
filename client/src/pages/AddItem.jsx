@@ -1,8 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { api } from "../api/apiClient";
 import { CalendarDaysIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
+import { api } from "../api/apiClient";
 
 const MAX_IMAGES = 2;
 
@@ -45,6 +45,16 @@ const UNIT_GROUPS = [
 const API_BASE =
   import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
+function safeRevokeObjectUrl(url) {
+  if (!url) return;
+
+  try {
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    console.debug("Failed to revoke object URL:", error);
+  }
+}
+
 export default function AddItem() {
   const navigate = useNavigate();
 
@@ -77,9 +87,7 @@ export default function AddItem() {
   useEffect(() => {
     return () => {
       previewRef.current.forEach((url) => {
-        try {
-          URL.revokeObjectURL(url);
-        } catch {}
+        safeRevokeObjectUrl(url);
       });
     };
   }, []);
@@ -131,12 +139,7 @@ export default function AddItem() {
     if (detecting) return;
 
     const url = imagePreviews[index];
-
-    if (url) {
-      try {
-        URL.revokeObjectURL(url);
-      } catch {}
-    }
+    safeRevokeObjectUrl(url);
 
     const updatedFiles = imageFiles.filter((_, i) => i !== index);
     const updatedPreviews = imagePreviews.filter((_, i) => i !== index);
@@ -177,7 +180,10 @@ export default function AddItem() {
 
       try {
         data = await response.json();
-      } catch {}
+      } catch (error) {
+        console.debug("Scan response is not valid JSON:", error);
+        data = null;
+      }
 
       if (!response.ok) {
         const message =
@@ -211,8 +217,8 @@ export default function AddItem() {
       } else {
         setScanStatus("success");
       }
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
       toast.error("Cannot reach server. Please try again.");
     } finally {
       setDetecting(false);
@@ -268,7 +274,7 @@ export default function AddItem() {
 
     const payload = {
       productName: trimmedName,
-      expiryDate: expiryDate,
+      expiryDate,
       confidence: 1.0,
       dateType: "CONFIRMED",
       decisionStatus: "CONFIRMED",
@@ -293,9 +299,7 @@ export default function AddItem() {
 
     if (next !== "scan") {
       imagePreviews.forEach((url) => {
-        try {
-          URL.revokeObjectURL(url);
-        } catch {}
+        safeRevokeObjectUrl(url);
       });
 
       setImageFiles([]);
@@ -339,8 +343,8 @@ export default function AddItem() {
       </div>
 
       {mode === "scan" && (
-        <div className="rounded-2xl border border-line bg-card p-4 space-y-3">
-          <p className="text-sm text-muted text-center">
+        <div className="space-y-3 rounded-2xl border border-line bg-card p-4">
+          <p className="text-center text-sm text-muted">
             Take photos of the product and expiry date
           </p>
 
@@ -348,8 +352,8 @@ export default function AddItem() {
             className={
               "flex items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold text-black " +
               (detecting
-                ? "bg-gray-400 cursor-not-allowed"
-                : "bg-accent cursor-pointer")
+                ? "cursor-not-allowed bg-gray-400"
+                : "cursor-pointer bg-accent")
             }
           >
             📷 Take Photo
@@ -371,13 +375,14 @@ export default function AddItem() {
                   <img
                     src={src}
                     alt={`Preview ${index}`}
-                    className="w-full max-h-48 object-contain rounded-xl border border-line"
+                    className="max-h-48 w-full rounded-xl border border-line object-contain"
                   />
 
                   <button
+                    type="button"
                     disabled={detecting}
                     onClick={() => removeImage(index)}
-                    className="absolute top-1 right-1 bg-black/70 text-white text-xs px-2 py-1 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                    className="absolute right-1 top-1 rounded-lg bg-black/70 px-2 py-1 text-xs text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     ✕
                   </button>
@@ -387,9 +392,10 @@ export default function AddItem() {
           )}
 
           <button
+            type="button"
             onClick={handleScan}
             disabled={detecting || imageFiles.length === 0}
-            className="w-full flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
           >
             {detecting && <ArrowPathIcon className="h-4 w-4 animate-spin" />}
             {detecting ? "Scanning images..." : "Scan images"}
@@ -398,13 +404,13 @@ export default function AddItem() {
           {scanMessage && (
             <div
               className={
-                "rounded-xl p-3 text-sm border text-center " + messageStyle()
+                "rounded-xl border p-3 text-center text-sm " + messageStyle()
               }
             >
               {scanMessage}
 
               {scanStatus === "rejected" && (
-                <p className="text-xs text-red-400 mt-2">
+                <p className="mt-2 text-xs text-red-400">
                   Tip: take a clearer photo and focus closely on the expiry date
                   label.
                 </p>
@@ -414,7 +420,7 @@ export default function AddItem() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-line bg-card p-4 space-y-3">
+      <div className="space-y-3 rounded-2xl border border-line bg-card p-4">
         <Field label="Food name">
           <input
             value={name}
@@ -457,7 +463,7 @@ export default function AddItem() {
             </div>
 
             {needsReview && (
-              <p className="text-xs text-yellow-400 mt-1">
+              <p className="mt-1 text-xs text-yellow-400">
                 ⚠ Please verify expiry date
               </p>
             )}
@@ -498,9 +504,10 @@ export default function AddItem() {
         </div>
 
         <button
+          type="button"
           onClick={handleSave}
           disabled={!canSave}
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
         >
           Save item
         </button>
@@ -512,6 +519,7 @@ export default function AddItem() {
 function Pill({ active, onClick, children }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={
         "rounded-full border px-3 py-1 text-sm transition " +
