@@ -1,4 +1,4 @@
-package com.example.expiry.model;
+package com.example.expiry.service;
 
 public enum ExpiryStatus {
     EXPIRED,

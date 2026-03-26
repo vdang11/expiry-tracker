@@ -1,6 +1,6 @@
 package com.example.expiry.repository;
 
-import com.example.expiry.model.User;
+import com.example.expiry.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

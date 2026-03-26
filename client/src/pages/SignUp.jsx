@@ -43,7 +43,7 @@ export default function SignUp() {
         },
         body: JSON.stringify({
           email: form.email,
-          name: form.email, // tạm dùng email làm name
+          name: form.email,
           password: form.password,
         }),
       });
@@ -68,7 +68,7 @@ export default function SignUp() {
       subtitle="Track and manage your food items effortlessly."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-        
+
         {/* EMAIL */}
         <input
           name="email"
