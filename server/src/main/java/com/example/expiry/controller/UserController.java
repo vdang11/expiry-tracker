@@ -3,7 +3,7 @@ package com.example.expiry.controller;
 import com.example.expiry.dto.LoginRequest;
 import com.example.expiry.dto.SignupRequest;
 import com.example.expiry.dto.UserResponse;
-import com.example.expiry.model.User;
+import com.example.expiry.entity.User;
 import com.example.expiry.repository.UserRepository;
 import org.springframework.web.bind.annotation.*;
 

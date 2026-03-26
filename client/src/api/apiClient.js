@@ -69,9 +69,11 @@ export const api = {
         `Delete failed with status ${response.status}`;
       throw new Error(message);
     }
+
+    return true; // 🔥 thêm dòng này
   },
 
-  consumeItem: async (id) => {
+  async consumeItem(id) {
     const res = await fetch(`${API_BASE}/api/products/${id}/consume`, {
       method: "PUT",
     });
@@ -82,4 +84,12 @@ export const api = {
 
     return res.json();
   },
+
+async generateRecipes(userId) {
+  const response = await fetch(
+    `${API_BASE}/api/recipes/generate?userId=${userId}`
+  );
+
+  return handleResponse(response);
+}
 };

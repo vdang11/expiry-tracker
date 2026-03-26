@@ -27,21 +27,23 @@ public class ScanExpiryService {
     private final ExpiryDecisionEngine decisionEngine;
     private final ImageValidator imageValidator;
     private final ImageOptimizer imageOptimizer;
+    private final ExpiryPromptBuilder expiryPromptBuilder;
 
     public ScanExpiryService(
             OpenAIClient openAIClient,
             ExpiryDecisionEngine decisionEngine,
             ImageValidator imageValidator,
-            ImageOptimizer imageOptimizer
+            ImageOptimizer imageOptimizer,
+            ExpiryPromptBuilder expiryPromptBuilder
     ) {
         this.openAIClient = openAIClient;
         this.decisionEngine = decisionEngine;
         this.imageValidator = imageValidator;
         this.imageOptimizer = imageOptimizer;
+        this.expiryPromptBuilder = expiryPromptBuilder;
     }
 
     public ExpiryResult scan(List<MultipartFile> images) {
-
         imageValidator.validateAll(images);
 
         try {
@@ -58,7 +60,8 @@ public class ScanExpiryService {
                 visionImages.add(new VisionImage(optimized.mimeType(), base64));
             }
 
-            ExpiryResult result = openAIClient.callVision(visionImages);
+            String prompt = expiryPromptBuilder.buildPrompt();
+            ExpiryResult result = openAIClient.callVision(visionImages, prompt);
 
             applyNoPackageEstimation(result);
 
@@ -79,7 +82,6 @@ public class ScanExpiryService {
             result.setSuggestedAction(decision.getSuggestedAction());
             result.setProductNameAccepted(productAccepted);
 
-            // sanitize rejected results
             if ("REJECTED".equals(decision.getStatus())) {
                 result.setExpiryDate("UNKNOWN");
                 result.setDateType("UNKNOWN");

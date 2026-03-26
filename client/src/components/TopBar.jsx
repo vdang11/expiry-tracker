@@ -28,6 +28,26 @@ export default function TopBar({ search, onSearchChange }) {
     location.pathname === "/" ||
     location.pathname.startsWith("/dashboard");
 
+  function maskEmail(email) {
+    if (!email) return "";
+
+    const [name, domain] = email.split("@");
+
+    if (!name || !domain) return email;
+
+    if (name.length <= 2) {
+      return name[0] + "*****@" + domain;
+    }
+
+    const visiblePart = name.slice(0, 2);
+    return `${visiblePart}*****@${domain}`;
+  }
+
+
+  const displayEmail = currentUser?.email
+    ? maskEmail(currentUser.email)
+    : "Guest";
+
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-3 flex items-center gap-4">
 
@@ -52,7 +72,22 @@ export default function TopBar({ search, onSearchChange }) {
         <span className="size-6 flex items-center justify-center rounded-full bg-slate-700 text-xs font-medium">
           {initial}
         </span>
-        <span className="text-xs opacity-80 text-muted">{currentUser?.email}</span>
+        <div className="relative group text-xs opacity-80">
+          {displayEmail}
+
+          <span
+            className="
+      absolute left-1/2 top-full mt-1 -translate-x-1/2
+      hidden group-hover:block
+      bg-slate-800 text-white
+      px-2 py-1 rounded-md border border-slate-700
+      shadow-md text-xs whitespace-nowrap
+      z-50
+    "
+          >
+            {currentUser?.email}
+          </span>
+        </div>
         <button onClick={handleLogout} className="p-1 rounded-md border border-line hover:border-accent transition">
           <LogOut size={14} />
         </button>

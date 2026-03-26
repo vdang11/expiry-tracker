@@ -1,5 +1,5 @@
 package com.example.expiry.repository;
-import com.example.expiry.model.Item;
+import com.example.expiry.entity.Item;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

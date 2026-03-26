@@ -1,6 +1,5 @@
 package com.example.expiry.service;
 
-import com.example.expiry.model.ExpiryStatus;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
