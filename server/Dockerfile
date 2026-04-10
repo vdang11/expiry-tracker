@@ -1,12 +1,14 @@
-FROM maven:3.9-eclipse-temurin-17
+# server/Dockerfile
 
+FROM maven:3.9-eclipse-temurin-17 AS builder
 WORKDIR /app
-
 COPY pom.xml .
 COPY src ./src
-
 RUN mvn clean package -DskipTests
 
-EXPOSE 8080
+FROM eclipse-temurin:17-jdk
+WORKDIR /app
+COPY --from=builder /app/target/*.jar app.jar
 
-CMD sh -c "java -jar target/*.jar"
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
