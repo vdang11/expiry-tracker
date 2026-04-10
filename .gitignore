@@ -30,3 +30,9 @@ server/.mvn/wrapper/maven-wrapper.jar
 server/*.log
 server/application-local.yml
 server/.vscode/launch.json
+
+# Node
+package-lock.json
+
+# IntelliJ
+*.iml
