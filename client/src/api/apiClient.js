@@ -1,5 +1,33 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+const API_BASE =
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
+// ===== USER HELPER =====
+function getCurrentUser() {
+  try {
+    const raw = localStorage.getItem("currentUser");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+// ===== NORMALIZE (🔥 NEW) =====
+function normalize(value) {
+  return (value || "").trim().toLowerCase();
+}
+
+// ===== HEADER BUILDER =====
+function buildHeaders(extra = {}) {
+  const currentUser = getCurrentUser();
+
+  return {
+    "Content-Type": "application/json",
+    ...(currentUser?.id && { "X-User-Id": String(currentUser.id) }),
+    ...extra,
+  };
+}
+
+// ===== RESPONSE HANDLER =====
 async function handleResponse(response) {
   let data = null;
 
@@ -20,30 +48,49 @@ async function handleResponse(response) {
   return data;
 }
 
+// ===== RECIPE NORMALIZER (🔥 NEW) =====
+function normalizeRecipe(recipe) {
+  return {
+    ...recipe,
+
+    // đảm bảo luôn tồn tại
+    expiringIngredients: (recipe.expiringIngredients || []).map(normalize),
+
+    // normalize để tránh mismatch UI
+    ingredients: (recipe.ingredients || []).map((i) => i.trim()),
+
+    title: recipe.title || recipe.name || "Untitled Recipe",
+  };
+}
+
+// ===== API =====
 export const api = {
-  async getItems(userId) {
-    const response = await fetch(`${API_BASE}/api/products?userId=${userId}`);
+  // ===== ITEMS =====
+  async getItems() {
+    const response = await fetch(`${API_BASE}/api/products`, {
+      headers: buildHeaders(),
+    });
     return handleResponse(response);
   },
 
-  async getSummary(userId) {
-    const response = await fetch(
-      `${API_BASE}/api/products/summary?userId=${userId}`,
-    );
+  async getSummary() {
+    const response = await fetch(`${API_BASE}/api/products/summary`, {
+      headers: buildHeaders(),
+    });
     return handleResponse(response);
   },
 
   async getItemById(id) {
-    const response = await fetch(`${API_BASE}/api/products/${id}`);
+    const response = await fetch(`${API_BASE}/api/products/${id}`, {
+      headers: buildHeaders(),
+    });
     return handleResponse(response);
   },
 
   async saveItem(payload) {
     const response = await fetch(`${API_BASE}/api/products`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers: buildHeaders(),
       body: JSON.stringify(payload),
     });
 
@@ -53,6 +100,7 @@ export const api = {
   async deleteItem(id) {
     const response = await fetch(`${API_BASE}/api/products/${id}`, {
       method: "DELETE",
+      headers: buildHeaders(),
     });
 
     if (!response.ok) {
@@ -70,26 +118,53 @@ export const api = {
       throw new Error(message);
     }
 
-    return true; // 🔥 thêm dòng này
+    return true;
   },
 
   async consumeItem(id) {
-    const res = await fetch(`${API_BASE}/api/products/${id}/consume`, {
+    const response = await fetch(`${API_BASE}/api/products/${id}/consume`, {
       method: "PUT",
+      headers: buildHeaders(),
     });
 
-    if (!res.ok) {
-      throw new Error("Failed to consume item");
-    }
-
-    return res.json();
+    return handleResponse(response);
   },
 
-async generateRecipes(userId) {
-  const response = await fetch(
-    `${API_BASE}/api/recipes/generate?userId=${userId}`
-  );
+  // ===== RECIPES =====
+  async generateRecipes(excludeRecipeIds = []) {
+    const response = await fetch(`${API_BASE}/api/recipes/generate`, {
+      method: "POST",
+      headers: buildHeaders(),
+      body: JSON.stringify({
+        excludeRecipeIds,
+      }),
+    });
 
-  return handleResponse(response);
-}
+    const data = await handleResponse(response);
+
+    // 🔥 CRITICAL FIX: đảm bảo FE luôn có expiringIngredients
+    const list = Array.isArray(data) ? data : [];
+
+    return list.map(normalizeRecipe);
+  },
+
+  async getRecipes() {
+    const response = await fetch(`${API_BASE}/api/recipes`, {
+      headers: buildHeaders(),
+    });
+
+    const data = await handleResponse(response);
+
+    return (Array.isArray(data) ? data : []).map(normalizeRecipe);
+  },
+
+  async getRecipeById(id) {
+    const response = await fetch(`${API_BASE}/api/recipes/${id}`, {
+      headers: buildHeaders(),
+    });
+
+    const data = await handleResponse(response);
+
+    return normalizeRecipe(data || {});
+  },
 };

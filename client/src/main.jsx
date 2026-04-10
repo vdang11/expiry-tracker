@@ -13,7 +13,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         position="top-center"
         gutter={8}
         toastOptions={{
-          duration: 3000,
+          duration: 2000,
           style: {
             background: "#1e293b",
             color: "#fff",
