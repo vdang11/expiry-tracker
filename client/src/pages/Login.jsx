@@ -46,7 +46,7 @@ export default function Login() {
         email: user.email
       }));
 
-      navigate("/");
+      window.location.replace("/#/dashboard"); 
     } catch (err) {
       console.error(err);
       setError("Cannot connect to server");

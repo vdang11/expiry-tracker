@@ -18,14 +18,14 @@ export default function Dashboard() {
   });
 
   // ================= USER =================
-  const currentUser = useMemo(() => {
-    try {
-      const raw = localStorage.getItem("currentUser");
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  }, []);
+const currentUser = useMemo(() => {
+  try {
+    const raw = localStorage.getItem("currentUser");
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}, [window.location.href]); // 🔥 KEY FIX
 
   // redirect nếu chưa login
   useEffect(() => {
@@ -42,7 +42,7 @@ export default function Dashboard() {
 
     (async () => {
       try {
-        const data = await api.getItems(currentUser.id);
+        const data = await api.getItems();
 
         if (alive) {
           setItems(data || []);
@@ -65,7 +65,7 @@ export default function Dashboard() {
 
     (async () => {
       try {
-        const data = await api.getSummary(currentUser.id);
+        const data = await api.getSummary();
 
         setSummary({
           expired: data.expired,

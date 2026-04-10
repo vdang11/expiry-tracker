@@ -1,16 +1,19 @@
 import { X, ChefHat, ListChecks } from "lucide-react";
 
-function getCuisineStyle(cuisine) {
-  switch (cuisine) {
-    case "ASIAN":
-      return "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30";
-    case "EUROPEAN":
-      return "bg-sky-500/15 text-sky-300 border border-sky-500/30";
-    case "AMERICAN":
-      return "bg-amber-500/15 text-amber-300 border border-amber-500/30";
-    default:
-      return "bg-slate-500/15 text-slate-300 border border-slate-500/30";
-  }
+function normalizeIngredient(value) {
+  return (value || "").trim().toLowerCase();
+}
+
+function isExpiringIngredient(ingredient, expiringIngredients = []) {
+  const ing = (ingredient || "").trim().toLowerCase();
+
+  const expSet = new Set(
+    (expiringIngredients || []).map((e) =>
+      (e || "").trim().toLowerCase()
+    )
+  );
+
+  return expSet.has(ing);
 }
 
 export default function RecipeModal({ recipe, onClose }) {
@@ -28,17 +31,8 @@ export default function RecipeModal({ recipe, onClose }) {
       <div className="relative z-10 w-full max-w-2xl rounded-t-3xl border border-slate-700 bg-slate-900 shadow-2xl sm:rounded-3xl">
         <div className="flex items-start justify-between border-b border-slate-800 px-5 py-4">
           <div className="pr-4">
-            <div className="mb-2">
-              <span
-                className={`inline-flex rounded-full px-2.5 py-1 text-[11px] font-medium ${getCuisineStyle(
-                  recipe.cuisine
-                )}`}
-              >
-                {recipe.cuisine}
-              </span>
-            </div>
             <h3 className="text-lg font-semibold text-slate-100 sm:text-xl">
-              {recipe.name}
+              {recipe.title}
             </h3>
           </div>
 
@@ -58,14 +52,25 @@ export default function RecipeModal({ recipe, onClose }) {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {recipe.ingredients?.map((ingredient, index) => (
-                <span
-                  key={`${ingredient}-${index}`}
-                  className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-200"
-                >
-                  {ingredient}
-                </span>
-              ))}
+              {recipe.ingredients?.map((ingredient, index) => {
+                const expiring = isExpiringIngredient(
+                  ingredient,
+                  recipe.expiringIngredients
+                );
+
+                return (
+                  <span
+                    key={`${ingredient}-${index}`}
+                    className={
+                      expiring
+                        ? "rounded-full border border-yellow-400/40 bg-yellow-400/10 px-3 py-1.5 text-sm text-yellow-200"
+                        : "rounded-full border border-slate-700 bg-slate-800 px-3 py-1.5 text-sm text-slate-200"
+                    }
+                  >
+                    {ingredient}
+                  </span>
+                );
+              })}
             </div>
           </section>
 
@@ -87,6 +92,24 @@ export default function RecipeModal({ recipe, onClose }) {
                   <p className="text-sm leading-6 text-slate-200">{step}</p>
                 </div>
               ))}
+            </div>
+          </section>
+
+          <section className="rounded-2xl border border-slate-800 bg-slate-950/40 p-4">
+            <div className="text-sm font-medium text-slate-200">
+              Highlight guide
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-400">
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-3 w-3 rounded-full border border-yellow-400/40 bg-yellow-400/20" />
+                <span>Expiring soon / expired ingredient</span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="inline-block h-3 w-3 rounded-full border border-slate-700 bg-slate-800" />
+                <span>Other recipe ingredients</span>
+              </div>
             </div>
           </section>
         </div>
