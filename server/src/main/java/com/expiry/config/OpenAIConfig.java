@@ -30,10 +30,4 @@ public class OpenAIConfig {
                 .defaultHeader(HttpHeaders.CONTENT_TYPE, "application/json")
                 .build();
     }
-
-    // FIX ERROR: provide ObjectMapper bean
-    @Bean
-    public ObjectMapper objectMapper() {
-        return new ObjectMapper();
-    }
 }
