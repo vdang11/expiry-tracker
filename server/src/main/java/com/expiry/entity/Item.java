@@ -56,6 +56,9 @@ public class Item {
     @Column(name = "item_status", nullable = false)
     private String itemStatus;
 
+    @Column(name = "last_reminder_sent_date")
+    private LocalDate lastReminderSentDate;
+
     @PrePersist
     public void onCreate() {
         LocalDateTime now = LocalDateTime.now();

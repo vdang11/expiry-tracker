@@ -17,3 +17,21 @@ spring:
     properties:
       hibernate:
         format_sql: true
+
+  mail:
+    host: localhost
+    port: 1025
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+reminder:
+  window-days: 3
+  cron: "0 0 8 * * *"
+  from-email: "u@gmail.com"
