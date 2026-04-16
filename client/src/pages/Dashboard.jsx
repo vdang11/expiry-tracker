@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { api } from "../api/apiClient";
+import {
+  getCurrentUserId,
+  subscribeAuthChange,
+} from "../api/authStorage";
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -8,45 +12,64 @@ export default function Dashboard() {
   const ctx = useOutletContext() || {};
   const search = ctx.search || "";
 
+  const [userId, setUserId] = useState(() => getCurrentUserId());
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState({
     expired: 0,
     soon: 0,
-    ok: 0
+    ok: 0,
   });
 
-  // ================= USER =================
-const currentUser = useMemo(() => {
-  try {
-    const raw = localStorage.getItem("currentUser");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}, [window.location.href]); // 🔥 KEY FIX
+  // ===== AUTH SYNC =====
+  useEffect(() => {
+    const unsubscribe = subscribeAuthChange(() => {
+      setUserId(getCurrentUserId());
+    });
+
+    return unsubscribe;
+  }, []);
 
   // redirect nếu chưa login
   useEffect(() => {
-    if (!currentUser) {
+    if (userId === null) {
       navigate("/login", { replace: true });
     }
-  }, [currentUser, navigate]);
+  }, [userId, navigate]);
 
-  // ================= LOAD ITEMS =================
+  // ===== LOAD DATA =====
   useEffect(() => {
-    if (!currentUser) return;
+    if (!userId) {
+      setItems([]);
+      setSummary({
+        expired: 0,
+        soon: 0,
+        ok: 0,
+      });
+      setLoading(false);
+      return;
+    }
 
     let alive = true;
 
     (async () => {
       try {
-        const data = await api.getItems();
+        setLoading(true);
 
-        if (alive) {
-          setItems(data || []);
-        }
+        const [itemsData, summaryData] = await Promise.all([
+          api.getItems(),
+          api.getSummary(),
+        ]);
+
+        if (!alive) return;
+
+        setItems(itemsData || []);
+        setSummary({
+          expired: summaryData?.expired || 0,
+          soon: summaryData?.expiringSoon || 0,
+          ok: summaryData?.fresh || 0,
+        });
       } catch (e) {
         console.error(e);
       } finally {
@@ -57,44 +80,24 @@ const currentUser = useMemo(() => {
     return () => {
       alive = false;
     };
-  }, [currentUser]);
-
-  // ================= LOAD SUMMARY =================
-  useEffect(() => {
-    if (!currentUser) return;
-
-    (async () => {
-      try {
-        const data = await api.getSummary();
-
-        setSummary({
-          expired: data.expired,
-          soon: data.expiringSoon,
-          ok: data.fresh
-        });
-      } catch (e) {
-        console.error(e);
-      }
-    })();
-  }, [currentUser]);
+  }, [userId]);
 
   // ================= FILTERING + =================
   const filteredItems = useMemo(() => {
-
-    let list = items.filter(it => it?.itemStatus !== "CONSUMED");
+    let list = items.filter((it) => it?.itemStatus !== "CONSUMED");
 
     // search
     if (search && search.trim()) {
       const q = search.toLowerCase();
 
-      list = list.filter(it =>
+      list = list.filter((it) =>
         (it?.productName || "").toLowerCase().includes(q)
       );
     }
 
     // filter
     if (filter !== "all") {
-      list = list.filter(it => {
+      list = list.filter((it) => {
         if (filter === "expired") return it?.expiryStatus === "EXPIRED";
         if (filter === "soon") return it?.expiryStatus === "EXPIRING_SOON";
         if (filter === "ok") return it?.expiryStatus === "FRESH";
@@ -102,7 +105,7 @@ const currentUser = useMemo(() => {
       });
     }
 
-    // ✅ SORT theo expiryDate (gần nhất trước)
+    // sort theo expiryDate (gần nhất trước)
     list.sort((a, b) => {
       if (!a.expiryDate) return 1;
       if (!b.expiryDate) return -1;
@@ -111,7 +114,6 @@ const currentUser = useMemo(() => {
     });
 
     return list;
-
   }, [items, search, filter]);
 
   return (
@@ -208,7 +210,6 @@ const currentUser = useMemo(() => {
                       Exp: {it?.expiryDate || "—"}
                     </div>
 
-                    {/* ✅ NEW: days left */}
                     <div className="text-xs text-muted">
                       {formatDaysLeft(daysLeft)}
                     </div>
@@ -269,7 +270,6 @@ function Pill({ active, onClick, children }) {
 }
 
 function StatusBadge({ expiryStatus, itemStatus }) {
-  // ưu tiên hiển thị consumed
   if (itemStatus === "CONSUMED") {
     return (
       <span className="rounded-full border border-green-400/40 px-2 py-1 text-xs text-green-300">
@@ -300,14 +300,13 @@ function StatusBadge({ expiryStatus, itemStatus }) {
     </span>
   );
 }
-// ================= HELPER =================
+
 function calculateDaysLeft(expiryDate) {
   if (!expiryDate) return null;
 
   const today = new Date();
   const exp = new Date(expiryDate);
 
-  // normalize về 00:00
   today.setHours(0, 0, 0, 0);
   exp.setHours(0, 0, 0, 0);
 
@@ -317,7 +316,6 @@ function calculateDaysLeft(expiryDate) {
 
 function formatDaysLeft(days) {
   if (days === null) return "—";
-
   if (days < 0) return `Expired ${Math.abs(days)} day(s) ago`;
   if (days === 0) return "Expires today";
   return `${days} day(s) left`;

@@ -155,7 +155,7 @@ public class RecipeService {
         return saved;
     }
 
-    // ===== 🔥 FIX QUAN TRỌNG NHẤT =====
+    // =====FIX QUAN TRỌNG NHẤT =====
     private RecipeResponse mapToResponse(
             Recipe recipe,
             boolean fromAI,
@@ -167,7 +167,7 @@ public class RecipeService {
                 .map(this::normalize)
                 .toList();
 
-        // 🔥 CHỈ LẤY EXPIRING CÓ TRONG RECIPE
+        //CHỈ LẤY EXPIRING CÓ TRONG RECIPE
         List<String> matchedExpiring = globalExpiring.stream()
                 .filter(recipeIngredients::contains)
                 .toList();
@@ -178,7 +178,7 @@ public class RecipeService {
                 .ingredients(splitByComma(recipe.getIngredients()))
                 .steps(splitByNewline(recipe.getSteps()))
                 .fromAI(fromAI)
-                .expiringIngredients(matchedExpiring) // 🔥 FIX
+                .expiringIngredients(matchedExpiring)
                 .build();
     }
 

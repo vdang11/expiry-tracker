@@ -14,9 +14,9 @@ export default function ItemDetail() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [consuming, setConsuming] = useState(false);
+
   const daysLeft = calculateDaysLeft(item?.expiryDate);
 
-  // ================= LOAD ITEM =================
   useEffect(() => {
     let alive = true;
 
@@ -24,12 +24,16 @@ export default function ItemDetail() {
       try {
         const data = await api.getItemById(id);
 
-        if (alive) setItem(data);
+        if (alive) {
+          setItem(data);
+        }
       } catch (e) {
         console.error(e);
         toast.error("Failed to load item");
       } finally {
-        if (alive) setLoading(false);
+        if (alive) {
+          setLoading(false);
+        }
       }
     })();
 
@@ -38,13 +42,13 @@ export default function ItemDetail() {
     };
   }, [id]);
 
-  // ================= DELETE =================
   function handleDeleteClick() {
+    if (deleting) return;
     setShowDeleteModal(true);
   }
 
   async function confirmDelete() {
-    if (!item) return;
+    if (!item || deleting) return;
 
     setDeleting(true);
 
@@ -52,20 +56,18 @@ export default function ItemDetail() {
       await api.deleteItem(item.id);
 
       toast.success("Item deleted");
-
-      navigate("/");
+      navigate("/dashboard");
     } catch (e) {
       console.error(e);
-      toast.error("Delete failed");
+      toast.error(e.message || "Delete failed");
     } finally {
       setDeleting(false);
       setShowDeleteModal(false);
     }
   }
 
-  // ================= CONSUME =================
   async function handleConsume() {
-    if (!item) return;
+    if (!item || consuming || item.itemStatus === "CONSUMED") return;
 
     setConsuming(true);
 
@@ -73,8 +75,7 @@ export default function ItemDetail() {
       await api.consumeItem(item.id);
 
       toast.success("Marked as consumed");
-
-      navigate("/");
+      navigate("/dashboard");
     } catch (e) {
       console.error(e);
       toast.error(e.message || "Update failed");
@@ -82,7 +83,7 @@ export default function ItemDetail() {
       setConsuming(false);
     }
   }
-  // ================= UI =================
+
   if (loading) {
     return (
       <div className="rounded-2xl border border-line bg-card p-4 text-muted">
@@ -98,17 +99,14 @@ export default function ItemDetail() {
       </div>
     );
   }
-
   return (
     <div className="space-y-4">
       {/* HEADER */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold">
-          {item.productName}
-        </h2>
+        <h2 className="text-xl font-semibold">{item.productName}</h2>
 
         <button
-          onClick={() => navigate("/")}
+          onClick={() => navigate("/dashboard")}
           className="rounded-xl border border-line px-3 py-2 text-sm text-muted hover:text-white"
         >
           Back
@@ -116,17 +114,15 @@ export default function ItemDetail() {
       </div>
 
       {/* INFO */}
-      <div className="rounded-2xl border border-line bg-card p-4 space-y-3">
-
+      <div className="space-y-3 rounded-2xl border border-line bg-card p-4">
         <Row label="Expiry date" value={item.expiryDate} />
         <Row label="Days left" value={formatDaysLeft(daysLeft)} />
         <Row label="Date type" value={item.dateType} />
         <Row label="Decision status" value={item.decisionStatus} />
         <Row label="Suggested action" value={item.suggestedAction} />
-        <Row label="Confidence" value={`${item.confidence * 100}%`} />
         <Row label="Item status" value={item.itemStatus} />
 
-        <div className="pt-2 flex gap-2">
+        <div className="flex gap-2 pt-2">
           <StatusBadge expiryStatus={item.expiryStatus} />
           <ItemStatusBadge itemStatus={item.itemStatus} />
         </div>
@@ -160,8 +156,6 @@ export default function ItemDetail() {
     </div>
   );
 }
-
-/* ================= COMPONENTS ================= */
 
 function Row({ label, value }) {
   return (
@@ -227,7 +221,6 @@ function calculateDaysLeft(expiryDate) {
 
 function formatDaysLeft(days) {
   if (days === null) return "—";
-
   if (days < 0) return `Expired ${Math.abs(days)} day(s) ago`;
   if (days === 0) return "Expires today";
   return `${days} day(s) left`;

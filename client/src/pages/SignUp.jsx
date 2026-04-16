@@ -1,9 +1,7 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../layouts/AuthLayout";
-
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { api } from "../api/apiClient";
 
 export default function SignUp() {
   const navigate = useNavigate();
@@ -15,14 +13,21 @@ export default function SignUp() {
   });
 
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   function handleChange(e) {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   }
 
   async function handleSubmit(e) {
     e.preventDefault();
+    if (loading) return;
+
     setError("");
 
     if (!form.email || !form.password || !form.confirmPassword) {
@@ -36,29 +41,20 @@ export default function SignUp() {
     }
 
     try {
-      const res = await fetch(`${API_BASE}/api/users/signup`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: form.email,
-          name: form.email,
-          password: form.password,
-        }),
+      setLoading(true);
+
+      await api.signup({
+        email: form.email,
+        name: form.email,
+        password: form.password,
       });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.message || "Signup failed");
-        return;
-      }
 
       navigate("/login");
     } catch (err) {
       console.error(err);
-      setError("Cannot connect to server.");
+      setError(err.message || "Cannot connect to server.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -68,41 +64,41 @@ export default function SignUp() {
       subtitle="Track and manage your food items effortlessly."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
-
-        {/* EMAIL */}
         <input
           name="email"
           type="email"
           placeholder="Email"
           value={form.email}
           onChange={handleChange}
-          className="w-full rounded-lg px-3 py-2 bg-slate-900 text-white border border-slate-700"
+          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white"
         />
 
-        {/* PASSWORD */}
         <input
           name="password"
           type="password"
           placeholder="Password"
           value={form.password}
           onChange={handleChange}
-          className="w-full rounded-lg px-3 py-2 bg-slate-900 text-white border border-slate-700"
+          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white"
         />
 
-        {/* CONFIRM PASSWORD */}
         <input
           name="confirmPassword"
           type="password"
           placeholder="Confirm Password"
           value={form.confirmPassword}
           onChange={handleChange}
-          className="w-full rounded-lg px-3 py-2 bg-slate-900 text-white border border-slate-700"
+          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white"
         />
 
-        {error && <div className="text-red-400 text-sm">{error}</div>}
+        {error && <div className="text-sm text-red-400">{error}</div>}
 
-        <button className="w-full bg-amber-400 text-black font-medium py-2 rounded-lg">
-          Sign Up
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-lg bg-amber-400 py-2 font-medium text-black disabled:opacity-60"
+        >
+          {loading ? "Signing Up..." : "Sign Up"}
         </button>
       </form>
 
@@ -110,7 +106,7 @@ export default function SignUp() {
         Already have an account?{" "}
         <Link
           to="/login"
-          className="text-amber-400 hover:text-amber-300 font-medium"
+          className="font-medium text-amber-400 hover:text-amber-300"
         >
           Login
         </Link>

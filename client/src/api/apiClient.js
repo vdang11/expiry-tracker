@@ -1,169 +1,62 @@
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+import { httpClient } from "./httpClient";
 
-// ===== USER HELPER =====
-function getCurrentUser() {
-  try {
-    const raw = localStorage.getItem("currentUser");
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-// ===== NORMALIZE (🔥 NEW) =====
+// ===== NORMALIZE =====
 function normalize(value) {
   return (value || "").trim().toLowerCase();
 }
 
-// ===== HEADER BUILDER =====
-function buildHeaders(extra = {}) {
-  const currentUser = getCurrentUser();
-
-  return {
-    "Content-Type": "application/json",
-    ...(currentUser?.id && { "X-User-Id": String(currentUser.id) }),
-    ...extra,
-  };
-}
-
-// ===== RESPONSE HANDLER =====
-async function handleResponse(response) {
-  let data = null;
-
-  try {
-    data = await response.json();
-  } catch {
-    data = null;
-  }
-
-  if (!response.ok) {
-    const message =
-      data?.message ||
-      data?.error ||
-      `Request failed with status ${response.status}`;
-    throw new Error(message);
-  }
-
-  return data;
-}
-
-// ===== RECIPE NORMALIZER (🔥 NEW) =====
+// ===== RECIPE NORMALIZER =====
 function normalizeRecipe(recipe) {
   return {
     ...recipe,
-
-    // đảm bảo luôn tồn tại
     expiringIngredients: (recipe.expiringIngredients || []).map(normalize),
-
-    // normalize để tránh mismatch UI
     ingredients: (recipe.ingredients || []).map((i) => i.trim()),
-
     title: recipe.title || recipe.name || "Untitled Recipe",
   };
 }
 
 // ===== API =====
 export const api = {
+  // ===== AUTH =====
+  signup: (payload) => httpClient.post("/api/users/signup", payload),
+
+  // ===== VISION =====
+  scanImages: (formData) => httpClient.post("/api/vision/scan", formData),
+
   // ===== ITEMS =====
-  async getItems() {
-    const response = await fetch(`${API_BASE}/api/products`, {
-      headers: buildHeaders(),
-    });
-    return handleResponse(response);
-  },
+  getItems: () => httpClient.get("/api/products"),
 
-  async getSummary() {
-    const response = await fetch(`${API_BASE}/api/products/summary`, {
-      headers: buildHeaders(),
-    });
-    return handleResponse(response);
-  },
+  getSummary: () => httpClient.get("/api/products/summary"),
 
-  async getItemById(id) {
-    const response = await fetch(`${API_BASE}/api/products/${id}`, {
-      headers: buildHeaders(),
-    });
-    return handleResponse(response);
-  },
+  getItemById: (id) => httpClient.get(`/api/products/${id}`),
 
-  async saveItem(payload) {
-    const response = await fetch(`${API_BASE}/api/products`, {
-      method: "POST",
-      headers: buildHeaders(),
-      body: JSON.stringify(payload),
-    });
+  saveItem: (payload) => httpClient.post("/api/products", payload),
 
-    return handleResponse(response);
-  },
+  deleteItem: (id) => httpClient.delete(`/api/products/${id}`),
 
-  async deleteItem(id) {
-    const response = await fetch(`${API_BASE}/api/products/${id}`, {
-      method: "DELETE",
-      headers: buildHeaders(),
-    });
+  consumeItem: (id) => httpClient.put(`/api/products/${id}/consume`),
 
-    if (!response.ok) {
-      let data = null;
-      try {
-        data = await response.json();
-      } catch {
-        data = null;
-      }
-
-      const message =
-        data?.message ||
-        data?.error ||
-        `Delete failed with status ${response.status}`;
-      throw new Error(message);
-    }
-
-    return true;
-  },
-
-  async consumeItem(id) {
-    const response = await fetch(`${API_BASE}/api/products/${id}/consume`, {
-      method: "PUT",
-      headers: buildHeaders(),
-    });
-
-    return handleResponse(response);
-  },
+  login: (payload) => httpClient.post("/api/users/login", payload),
 
   // ===== RECIPES =====
   async generateRecipes(excludeRecipeIds = []) {
-    const response = await fetch(`${API_BASE}/api/recipes/generate`, {
-      method: "POST",
-      headers: buildHeaders(),
-      body: JSON.stringify({
-        excludeRecipeIds,
-      }),
+    const data = await httpClient.post("/api/recipes/generate", {
+      excludeRecipeIds,
     });
 
-    const data = await handleResponse(response);
-
-    // 🔥 CRITICAL FIX: đảm bảo FE luôn có expiringIngredients
     const list = Array.isArray(data) ? data : [];
 
     return list.map(normalizeRecipe);
   },
 
   async getRecipes() {
-    const response = await fetch(`${API_BASE}/api/recipes`, {
-      headers: buildHeaders(),
-    });
-
-    const data = await handleResponse(response);
+    const data = await httpClient.get("/api/recipes");
 
     return (Array.isArray(data) ? data : []).map(normalizeRecipe);
   },
 
   async getRecipeById(id) {
-    const response = await fetch(`${API_BASE}/api/recipes/${id}`, {
-      headers: buildHeaders(),
-    });
-
-    const data = await handleResponse(response);
+    const data = await httpClient.get(`/api/recipes/${id}`);
 
     return normalizeRecipe(data || {});
   },

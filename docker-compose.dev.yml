@@ -10,23 +10,25 @@ services:
       - "3307:3306"
 
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: expiry_tracker
       MYSQL_CHARACTER_SET_SERVER: utf8mb4
       MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
 
     volumes:
-      - mysql_expiry_dev_data:/var/lib/mysql
+      - expiry_tracker_mysql_dev_data:/var/lib/mysql
 
   backend:
     image: maven:3.9-eclipse-temurin-17
     container_name: expiry-backend-dev
     working_dir: /app
+    restart: always 
 
     volumes:
       - ./server:/app
+      - ~/.m2:/root/.m2
 
-    command: mvn spring-boot:run
+    command: mvn clean spring-boot:run
 
     ports:
       - "8080:8080"
@@ -34,8 +36,9 @@ services:
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/expiry_tracker?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
+      SPRING_PROFILES_ACTIVE: dev
 
     depends_on:
       - mysql
@@ -47,9 +50,9 @@ services:
 
     volumes:
       - ./client:/app
-      - /app/node_modules
+      - node_modules_cache:/app/node_modules
 
-    command: sh -c "npm install && npm run dev -- --host"
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
 
     ports:
       - "5173:5173"
@@ -58,4 +61,8 @@ services:
       - backend
 
 volumes:
-  mysql_expiry_dev_data:
+  expiry_tracker_mysql_dev_data:
+    name: expiry_tracker_mysql_dev_data
+
+  node_modules_cache:
+    name: expiry_tracker_node_modules_cache

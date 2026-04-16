@@ -1,11 +1,10 @@
 import { Navigate } from "react-router-dom";
+import { getCurrentUserId } from "../api/authStorage";
 
 export default function StartupRedirect() {
-  const user = localStorage.getItem("currentUser");
+  const userId = getCurrentUserId();
 
-  if (user) {
-    return <Navigate to="/dashboard" replace />;
-  }
-
-  return <Navigate to="/login" replace />;
+  return userId
+    ? <Navigate to="/dashboard" replace />
+    : <Navigate to="/login" replace />;
 }

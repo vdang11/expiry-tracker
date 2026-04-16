@@ -3,6 +3,7 @@ package com.expiry.controller;
 import com.expiry.dto.ExpiryResult;
 import com.expiry.dto.ScanResponse;
 import com.expiry.service.ScanExpiryService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -10,6 +11,8 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/vision")
+@CrossOrigin(origins = "*")
+@Slf4j
 public class ExpiryController {
 
     private final ScanExpiryService scanExpiryService;
@@ -18,8 +21,16 @@ public class ExpiryController {
         this.scanExpiryService = scanExpiryService;
     }
 
-    @PostMapping("/scan")
+    // 🔥 FIX QUAN TRỌNG: thêm consumes
+    @PostMapping(value = "/scan", consumes = "multipart/form-data")
     public ScanResponse scan(@RequestParam("images") List<MultipartFile> images) {
+
+        // 🔥 DEBUG
+        log.info("Received {} images", images != null ? images.size() : 0);
+
+        if (images == null || images.isEmpty()) {
+            throw new IllegalArgumentException("No images uploaded");
+        }
 
         ExpiryResult result = scanExpiryService.scan(images);
 

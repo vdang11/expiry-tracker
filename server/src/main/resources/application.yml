@@ -1,19 +1,13 @@
 spring:
   servlet:
     multipart:
+      enabled: true
       max-file-size: 15MB
       max-request-size: 15MB
-
-  datasource:
-    url: jdbc:mysql://localhost:3306/expiry_tracker?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
-    username: root
-    password: root
-    driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
     hibernate:
       ddl-auto: update
-    show-sql: true
     properties:
       hibernate:
         format_sql: true
@@ -35,3 +29,6 @@ reminder:
   window-days: 3
   cron: "0 0 8 * * *"
   from-email: "u@gmail.com"
+server:
+  address: 0.0.0.0
+  port: 8080

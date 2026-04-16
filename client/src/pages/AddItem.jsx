@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CalendarDaysIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 import { api } from "../api/apiClient";
+import "react-datepicker/dist/react-datepicker.css";
+import { getCurrentUserId } from "../api/authStorage";
 
 const MAX_IMAGES = 2;
 
@@ -19,31 +21,28 @@ const UNIT_GROUPS = [
       { value: "jar", label: "Jar" },
       { value: "tin", label: "Tin" },
       { value: "pouch", label: "Pouch" },
-      { value: "slice", label: "Slice" }
-    ]
+      { value: "slice", label: "Slice" },
+    ],
   },
   {
     label: "Weight",
     options: [
       { value: "g", label: "Gram (g)" },
-      { value: "kg", label: "Kilogram (kg)" }
-    ]
+      { value: "kg", label: "Kilogram (kg)" },
+    ],
   },
   {
     label: "Liquid",
     options: [
       { value: "ml", label: "Milliliter (ml)" },
-      { value: "L", label: "Liter (L)" }
-    ]
+      { value: "L", label: "Liter (L)" },
+    ],
   },
   {
     label: "Fresh Produce",
-    options: [{ value: "bunch", label: "Bunch" }]
-  }
+    options: [{ value: "bunch", label: "Bunch" }],
+  },
 ];
-
-const API_BASE =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
 
 function safeRevokeObjectUrl(url) {
   if (!url) return;
@@ -53,6 +52,12 @@ function safeRevokeObjectUrl(url) {
   } catch (error) {
     console.debug("Failed to revoke object URL:", error);
   }
+}
+
+function todayISO() {
+  const now = new Date();
+  const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  return local.toISOString().slice(0, 10);
 }
 
 export default function AddItem() {
@@ -80,6 +85,8 @@ export default function AddItem() {
   const [needsReview, setNeedsReview] = useState(false);
   const [productNameAccepted, setProductNameAccepted] = useState(true);
 
+  const today = useMemo(() => todayISO(), []);
+
   useEffect(() => {
     previewRef.current = imagePreviews;
   }, [imagePreviews]);
@@ -92,13 +99,21 @@ export default function AddItem() {
     };
   }, []);
 
-  function todayISO() {
-    const now = new Date();
-    const local = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-    return local.toISOString().slice(0, 10);
+  function resetScanState() {
+    setScanMessage("");
+    setScanStatus("idle");
+    setNeedsReview(false);
+    setProductNameAccepted(true);
   }
 
-  const today = todayISO();
+  function clearImages() {
+    previewRef.current.forEach((url) => {
+      safeRevokeObjectUrl(url);
+    });
+
+    setImageFiles([]);
+    setImagePreviews([]);
+  }
 
   function handleImageChange(e) {
     if (detecting) return;
@@ -117,8 +132,7 @@ export default function AddItem() {
     const uniqueFiles = files.filter((newFile) => {
       return !imageFiles.some(
         (oldFile) =>
-          oldFile.name === newFile.name &&
-          oldFile.size === newFile.size
+          oldFile.name === newFile.name && oldFile.size === newFile.size
       );
     });
 
@@ -127,10 +141,7 @@ export default function AddItem() {
     setImageFiles((prev) => [...prev, ...uniqueFiles]);
     setImagePreviews((prev) => [...prev, ...newPreviews]);
 
-    setScanMessage("");
-    setScanStatus("idle");
-    setNeedsReview(false);
-    setProductNameAccepted(true);
+    resetScanState();
 
     e.target.value = null;
   }
@@ -147,10 +158,7 @@ export default function AddItem() {
     setImageFiles(updatedFiles);
     setImagePreviews(updatedPreviews);
 
-    setScanMessage("");
-    setScanStatus("idle");
-    setNeedsReview(false);
-    setProductNameAccepted(true);
+    resetScanState();
 
     if (updatedFiles.length === 0) {
       setName("");
@@ -169,31 +177,11 @@ export default function AddItem() {
     try {
       const formData = new FormData();
 
-      imageFiles.forEach((file) => formData.append("images", file));
-
-      const response = await fetch(`${API_BASE}/api/vision/scan`, {
-        method: "POST",
-        body: formData
+      imageFiles.forEach((file) => {
+        formData.append("images", file);
       });
 
-      let data = null;
-
-      try {
-        data = await response.json();
-      } catch (error) {
-        console.debug("Scan response is not valid JSON:", error);
-        data = null;
-      }
-
-      if (!response.ok) {
-        const message =
-          data?.message ||
-          data?.error ||
-          "Scan failed. Please try again.";
-
-        toast.error(message);
-        return;
-      }
+      const data = await api.scanImages(formData);
 
       if (data.productName && data.productName.trim()) {
         setName(data.productName.trim());
@@ -207,7 +195,6 @@ export default function AddItem() {
 
       setProductNameAccepted(data.productNameAccepted ?? true);
       setNeedsReview(data.needsUserReview ?? false);
-
       setScanMessage(data.message ?? "");
 
       if (data.expiryDate === "UNKNOWN") {
@@ -219,71 +206,74 @@ export default function AddItem() {
       }
     } catch (error) {
       console.error(error);
-      toast.error("Cannot reach server. Please try again.");
+      toast.error(error.message || "Cannot reach server. Please try again.");
     } finally {
       setDetecting(false);
     }
   }
 
-  const canSave =
-    !detecting &&
-    name.trim() &&
-    quantity > 0 &&
-    (mode === "manual" || imageFiles.length > 0);
-
-  async function handleSave() {
+  function validateForm() {
     const trimmedName = name.trim();
 
     if (!trimmedName) {
-      toast.error("Please enter food name.");
-      return;
+      return "Please enter food name.";
     }
 
     if (!purchaseDate) {
-      toast.error("Please select purchase date.");
-      return;
-    }
-
-    if (purchaseDate > today) {
-      toast.error("Purchase date cannot be in the future.");
-      return;
+      return "Please select purchase date.";
     }
 
     if (!expiryDate) {
-      toast.error("Please select expiry date.");
-      return;
-    }
-
-    if (expiryDate < today) {
-      toast.error("Expiry date cannot be in the past.");
-      return;
+      return "Please select expiry date.";
     }
 
     if (expiryDate < purchaseDate) {
-      toast.error("Expiry date cannot be earlier than purchase date.");
+      return "Expiry date must be after purchase date.";
+    }
+
+    if (quantity <= 0) {
+      return "Quantity must be greater than 0.";
+    }
+
+    return null;
+  }
+
+  const canSave =
+    !detecting &&
+    Boolean(name.trim()) &&
+    quantity > 0 &&
+    Boolean(purchaseDate) &&
+    Boolean(expiryDate) &&
+    (mode === "manual" || imageFiles.length > 0);
+
+  async function handleSave() {
+    const validationError = validateForm();
+
+    if (validationError) {
+      toast.error(validationError);
       return;
     }
 
-    const raw = localStorage.getItem("currentUser");
-    const currentUser = raw ? JSON.parse(raw) : null;
+    const userId = getCurrentUserId();
 
-    if (!currentUser) {
+    if (!userId) {
       toast.error("User not logged in.");
       return;
     }
 
     const payload = {
-      productName: trimmedName,
+      productName: name.trim(),
       expiryDate,
       confidence: 1.0,
       dateType: "CONFIRMED",
       decisionStatus: "CONFIRMED",
       suggestedAction: "KEEP",
-      userId: currentUser.id
+      userId,
     };
 
     try {
       await api.saveItem(payload);
+
       toast.success("Item added successfully");
       navigate("/");
     } catch (error) {
@@ -298,15 +288,8 @@ export default function AddItem() {
     setMode(next);
 
     if (next !== "scan") {
-      imagePreviews.forEach((url) => {
-        safeRevokeObjectUrl(url);
-      });
-
-      setImageFiles([]);
-      setImagePreviews([]);
-      setScanMessage("");
-      setScanStatus("idle");
-      setNeedsReview(false);
+      clearImages();
+      resetScanState();
       setDetecting(false);
       setProductNameAccepted(true);
     }
@@ -436,7 +419,7 @@ export default function AddItem() {
           )}
         </Field>
 
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field label="Purchase date">
             <div className="relative">
               <input
@@ -444,9 +427,20 @@ export default function AddItem() {
                 value={purchaseDate}
                 max={today}
                 onChange={(e) => setPurchaseDate(e.target.value)}
-                className="w-full rounded-xl border border-line bg-bg px-3 py-2 pr-10 text-sm"
+                className="
+                  w-full rounded-xl border border-line bg-bg
+                  px-3 py-3 sm:py-2
+                  text-base sm:text-sm
+                  appearance-none
+                "
               />
-              <CalendarDaysIcon className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+
+              <CalendarDaysIcon
+                className="
+                  pointer-events-none absolute right-3 top-1/2 hidden h-5 w-5
+                  -translate-y-1/2 text-muted sm:block
+                "
+              />
             </div>
           </Field>
 
@@ -457,9 +451,20 @@ export default function AddItem() {
                 value={expiryDate}
                 min={today}
                 onChange={(e) => setExpiryDate(e.target.value)}
-                className="w-full rounded-xl border border-line bg-bg px-3 py-2 pr-10 text-sm"
+                className="
+                  w-full rounded-xl border border-line bg-bg
+                  px-3 py-3 sm:py-2
+                  text-base sm:text-sm
+                  appearance-none
+                "
               />
-              <CalendarDaysIcon className="pointer-events-none absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-muted" />
+
+              <CalendarDaysIcon
+                className="
+                  pointer-events-none absolute right-3 top-1/2 hidden h-5 w-5
+                  -translate-y-1/2 text-muted sm:block
+                "
+              />
             </div>
 
             {needsReview && (
@@ -477,7 +482,7 @@ export default function AddItem() {
               min="0.1"
               step="0.1"
               value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
+              onChange={(e) => setQuantity(Number(e.target.value) || 0)}
               className="w-full rounded-xl border border-line bg-bg px-3 py-2 text-sm"
             />
           </Field>

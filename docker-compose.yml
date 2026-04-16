@@ -1,20 +1,22 @@
+version: '3.8'
+
 services:
 
   mysql:
     image: mysql:8
-    container_name: expiry-mysql
+    container_name: expiry-mysql-prod
     restart: always
     ports:
       - "3306:3306"
 
     environment:
-      MYSQL_ROOT_PASSWORD: root
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: expiry_tracker
       MYSQL_CHARACTER_SET_SERVER: utf8mb4
       MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
 
     volumes:
-      - mysql_expiry_data:/var/lib/mysql
+      - expiry_tracker_mysql_prod_data:/var/lib/mysql
 
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
@@ -30,13 +32,15 @@ services:
       - "8080:8080"
 
     environment:
+      SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/expiry_tracker?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: root
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
 
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
 
   frontend:
     build: ./client
@@ -49,4 +53,5 @@ services:
       - backend
 
 volumes:
-  mysql_expiry_data:
+  expiry_tracker_mysql_prod_data:
+    name: expiry_tracker_mysql_prod_data

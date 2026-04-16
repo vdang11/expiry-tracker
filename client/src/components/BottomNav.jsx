@@ -21,12 +21,18 @@ export default function BottomNav() {
           <NavLink
             key={to}
             to={to}
+            end={to === "/"} // 🔥 fix active bug
+            aria-label={label}
             className={({ isActive }) =>
-              `flex flex-col items-center gap-1 text-xs transition
-               ${isActive ? "text-accent" : "text-muted hover:text-white"}`
+              `flex flex-col items-center gap-1 text-xs transition px-2 py-1 rounded-lg
+               ${
+                 isActive
+                   ? "text-accent bg-accent/10 scale-105"
+                   : "text-muted hover:text-white"
+               }`
             }
           >
-            <Icon className="h-6 w-6" />
+            <Icon className="h-5 w-5 sm:h-6 sm:w-6" />
             {label}
           </NavLink>
         ))}

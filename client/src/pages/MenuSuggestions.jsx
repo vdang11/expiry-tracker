@@ -211,11 +211,11 @@ async function handleGenerateRecipes() {
           </div>
         )}
       </div>
-
+    {selectedRecipe &&
       <RecipeModal
         recipe={selectedRecipe}
         onClose={() => setSelectedRecipe(null)}
-      />
+      />}
     </>
   );
 }
