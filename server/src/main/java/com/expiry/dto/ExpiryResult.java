@@ -37,8 +37,6 @@ public class ExpiryResult {
 
     private boolean productNameAccepted;
 
-    // ===== Custom constructors (GIỮ LẠI) =====
-
     public ExpiryResult(String expiryDate, double confidence,
                         String productName, double productNameConfidence) {
         this.expiryDate = expiryDate;

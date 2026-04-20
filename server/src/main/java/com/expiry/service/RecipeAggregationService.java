@@ -3,6 +3,7 @@ package com.expiry.service;
 import com.expiry.dto.RecipeAggregationResult;
 import com.expiry.entity.Item;
 import com.expiry.repository.ProductRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
@@ -10,16 +11,11 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Service
+@RequiredArgsConstructor
 public class RecipeAggregationService {
 
     private final ProductRepository productRepository;
     private final RecipeIngredientFilter recipeIngredientFilter;
-
-    public RecipeAggregationService(ProductRepository productRepository,
-                                    RecipeIngredientFilter recipeIngredientFilter) {
-        this.productRepository = productRepository;
-        this.recipeIngredientFilter = recipeIngredientFilter;
-    }
 
     public List<String> getIngredientsForRecipe(Long userId) {
         return getAggregationResult(userId).getIngredients();
@@ -31,51 +27,49 @@ public class RecipeAggregationService {
 
         List<Item> items = productRepository.findByUser_IdAndItemStatus(userId, "ACTIVE");
 
-        // 🔥 FIX: include expired items
         List<String> expiring = items.stream()
                 .filter(item -> item.getExpiryDate() != null)
-                .filter(item -> {
-                    long days = ChronoUnit.DAYS.between(today, item.getExpiryDate());
-                    return days <= 3; // ✅ CHANGED (was >=0 && <=3)
-                })
+                .filter(item -> daysBetween(today, item.getExpiryDate()) <= 3)
                 .map(Item::getProductName)
-                .filter(Objects::nonNull)
-                .map(String::trim)
-                .filter(name -> !name.isBlank())
+                .filter(this::isValidName)
                 .filter(recipeIngredientFilter::isCookableIngredient)
-                .map(this::normalize) // 🔥 normalize luôn từ đầu
+                .map(this::normalize)
                 .distinct()
                 .toList();
 
         List<String> stable = items.stream()
                 .filter(item -> item.getExpiryDate() != null)
-                .filter(item -> {
-                    long days = ChronoUnit.DAYS.between(today, item.getExpiryDate());
-                    return days > 3;
-                })
+                .filter(item -> daysBetween(today, item.getExpiryDate()) > 3)
                 .map(Item::getProductName)
-                .filter(Objects::nonNull)
-                .map(String::trim)
-                .filter(name -> !name.isBlank())
+                .filter(this::isValidName)
                 .filter(recipeIngredientFilter::isCookableIngredient)
                 .map(this::normalize)
                 .distinct()
                 .limit(3)
                 .toList();
 
-        List<String> allIngredients = new ArrayList<>();
-        allIngredients.addAll(expiring);
+        List<String> all = new ArrayList<>(expiring);
 
-        for (String ingredient : stable) {
-            if (!allIngredients.contains(ingredient)) {
-                allIngredients.add(ingredient);
+        for (String s : stable) {
+            if (!all.contains(s)) {
+                all.add(s);
             }
         }
 
-        return new RecipeAggregationResult(userId, expiring, stable, allIngredients);
+        return new RecipeAggregationResult(userId, expiring, stable, all);
+    }
+
+    // ===== helpers =====
+
+    private long daysBetween(LocalDate today, LocalDate date) {
+        return ChronoUnit.DAYS.between(today, date);
+    }
+
+    private boolean isValidName(String name) {
+        return name != null && !name.trim().isBlank();
     }
 
     private String normalize(String text) {
-        return text == null ? "" : text.trim().toLowerCase();
+        return text.trim().toLowerCase();
     }
 }

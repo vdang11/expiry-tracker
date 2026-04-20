@@ -9,7 +9,6 @@ import lombok.*;
         indexes = {
                 @Index(name = "idx_ri_recipe_id", columnList = "recipe_id"),
                 @Index(name = "idx_ri_ingredient_id", columnList = "ingredient_id"),
-                @Index(name = "idx_ri_recipe_ingredient", columnList = "recipe_id, ingredient_id")
         },
         uniqueConstraints = {
                 @UniqueConstraint(

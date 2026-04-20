@@ -13,10 +13,14 @@ import java.time.LocalDateTime;
 @Table(
         name = "items",
         indexes = {
-                @Index(name = "idx_item_user_id", columnList = "user_id"),
-                @Index(name = "idx_item_status", columnList = "item_status"),
-                @Index(name = "idx_item_expiry_date", columnList = "expiry_date"),
-                @Index(name = "idx_item_user_status", columnList = "user_id, item_status")
+                @Index(
+                        name = "idx_item_user_status_expiry",
+                        columnList = "user_id, item_status, expiry_date"
+                ),
+                @Index(
+                        name = "idx_item_status_expiry",
+                        columnList = "item_status, expiry_date"
+                )
         }
 )
 public class Item {

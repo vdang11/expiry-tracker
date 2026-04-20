@@ -1,6 +1,6 @@
 import { LogOut } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Logo from "../assets/logo.svg";
 import {
   clearCurrentUser,
@@ -8,11 +8,12 @@ import {
   subscribeAuthChange,
 } from "../api/authStorage";
 
-export default function TopBar({ search, onSearchChange }) {
+export default function TopBar({ search = "", onSearchChange = () => {} }) {
   const navigate = useNavigate();
   const location = useLocation();
 
   const [currentUser, setCurrentUser] = useState(() => getCurrentUser());
+  const [input, setInput] = useState(search || "");
 
   useEffect(() => {
     const unsubscribe = subscribeAuthChange(() => {
@@ -20,7 +21,11 @@ export default function TopBar({ search, onSearchChange }) {
     });
 
     return unsubscribe;
-  }, [getCurrentUser]);
+  }, []);
+
+  useEffect(() => {
+    setInput(search || "");
+  }, [search]);
 
   const initial = currentUser?.email
     ? currentUser.email.charAt(0).toUpperCase()
@@ -34,7 +39,7 @@ export default function TopBar({ search, onSearchChange }) {
     if (!name || !domain) return currentUser.email;
 
     if (name.length <= 2) {
-      return name[0] + "*****@" + domain;
+      return `${name[0]}*****@${domain}`;
     }
 
     return `${name.slice(0, 2)}*****@${domain}`;
@@ -45,33 +50,38 @@ export default function TopBar({ search, onSearchChange }) {
     navigate("/login", { replace: true });
   };
 
-  const showSearch = ["/", "/dashboard"].some((path) =>
-    location.pathname.startsWith(path)
-  );
+  function handleKeyDown(e) {
+    if (e.key === "Enter") {
+      onSearchChange(input.trim());
+    }
+  }
+
+  const showSearch =
+    location.pathname === "/" || location.pathname === "/dashboard";
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-3 flex flex-wrap items-center gap-3">
+    <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-3 px-4 py-3">
       {/* Logo */}
       <button
         onClick={() => navigate("/")}
-        className="flex items-center gap-2 shrink-0 order-1"
+        className="order-1 flex shrink-0 items-center gap-2"
       >
-        <img src={Logo} className="h-8 w-8" />
-        <span className="text-lg font-bold whitespace-nowrap">
+        <img src={Logo} alt="Expiry Tracker logo" className="h-8 w-8" />
+        <span className="whitespace-nowrap text-lg font-bold">
           Expiry Tracker
         </span>
       </button>
 
       {/* User */}
-      <div className="flex items-center gap-2 shrink-0 order-2 ml-auto sm:order-3">
-        <span className="size-7 flex items-center justify-center rounded-full bg-slate-700 text-xs font-medium">
+      <div className="order-2 ml-auto flex shrink-0 items-center gap-2 sm:order-3">
+        <span className="flex size-7 items-center justify-center rounded-full bg-slate-700 text-xs font-medium">
           {initial}
         </span>
 
-        <div className="relative group text-xs opacity-80 hidden sm:block">
+        <div className="group relative hidden text-xs opacity-80 sm:block">
           {displayEmail}
 
-          <span className="absolute left-1/2 top-full mt-1 -translate-x-1/2 hidden group-hover:block bg-slate-800 text-white px-2 py-1 rounded-md border border-slate-700 shadow-md text-xs whitespace-nowrap z-50">
+          <span className="absolute left-1/2 top-full z-50 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-white shadow-md group-hover:block">
             {currentUser?.email}
           </span>
         </div>
@@ -79,7 +89,7 @@ export default function TopBar({ search, onSearchChange }) {
         <button
           aria-label="Logout"
           onClick={handleLogout}
-          className="p-2 rounded-md border border-line hover:border-accent transition"
+          className="rounded-md border border-line p-2 transition hover:border-accent"
         >
           <LogOut size={16} />
         </button>
@@ -88,16 +98,17 @@ export default function TopBar({ search, onSearchChange }) {
       {/* Search */}
       {showSearch && (
         <input
-          value={search}
-          onChange={(e) => onSearchChange(e.target.value)}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
           placeholder="Search food..."
           className="
-            w-full order-3
-            sm:order-2 sm:flex-1
-            rounded-lg bg-slate-800 border border-line
+            order-3 w-full
+            rounded-lg border border-line bg-slate-800
             px-3 py-2 text-sm text-white
-            placeholder-muted
-            focus:border-accent/70 outline-none
+            outline-none placeholder-muted
+            focus:border-accent/70
+            sm:order-2 sm:flex-1
           "
         />
       )}

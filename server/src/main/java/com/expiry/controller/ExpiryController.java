@@ -21,12 +21,9 @@ public class ExpiryController {
         this.scanExpiryService = scanExpiryService;
     }
 
-    // 🔥 FIX QUAN TRỌNG: thêm consumes
+
     @PostMapping(value = "/scan", consumes = "multipart/form-data")
     public ScanResponse scan(@RequestParam("images") List<MultipartFile> images) {
-
-        // 🔥 DEBUG
-        log.info("Received {} images", images != null ? images.size() : 0);
 
         if (images == null || images.isEmpty()) {
             throw new IllegalArgumentException("No images uploaded");

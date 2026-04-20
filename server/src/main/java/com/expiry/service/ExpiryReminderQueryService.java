@@ -5,7 +5,6 @@ import com.expiry.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.time.LocalDate;
 import java.util.List;
 
 @Service
@@ -13,22 +12,31 @@ import java.util.List;
 public class ExpiryReminderQueryService {
 
     private final ProductRepository productRepository;
+    private final ExpiryService expiryService;
 
     public List<Item> findExpiringSoonItems(int windowDays) {
-        LocalDate today = LocalDate.now();
-        LocalDate endDate = today.plusDays(windowDays);
 
-        return productRepository.findByExpiryDateBetweenAndItemStatus(
-                today,
-                endDate,
-                "ACTIVE"
-        );
+        List<Item> items = productRepository.findByUser_IdAndItemStatus(null, "ACTIVE");
+
+        return items.stream()
+                .filter(item -> item.getExpiryDate() != null)
+                .filter(item ->
+                        expiryService.calculateStatus(item.getExpiryDate())
+                                == ExpiryStatus.EXPIRING_SOON
+                )
+                .toList();
     }
 
     public List<Item> findExpiredItems() {
-        return productRepository.findByExpiryDateBeforeAndItemStatus(
-                LocalDate.now(),
-                "ACTIVE"
-        );
+
+        List<Item> items = productRepository.findByUser_IdAndItemStatus(null, "ACTIVE");
+
+        return items.stream()
+                .filter(item -> item.getExpiryDate() != null)
+                .filter(item ->
+                        expiryService.calculateStatus(item.getExpiryDate())
+                                == ExpiryStatus.EXPIRED
+                )
+                .toList();
     }
 }

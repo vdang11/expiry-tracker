@@ -19,12 +19,27 @@ function normalizeRecipe(recipe) {
 export const api = {
   // ===== AUTH =====
   signup: (payload) => httpClient.post("/api/users/signup", payload),
+  login: (payload) => httpClient.post("/api/users/login", payload),
 
   // ===== VISION =====
   scanImages: (formData) => httpClient.post("/api/vision/scan", formData),
 
   // ===== ITEMS =====
-  getItems: () => httpClient.get("/api/products"),
+  getItems: (
+    page = 0,
+    size = 20,
+    search = "",
+    filter = "all",
+    sortBy = "expiryDate",
+    direction = "asc"
+  ) =>
+    httpClient.get(
+      `/api/products?page=${page}&size=${size}&search=${encodeURIComponent(
+        search
+      )}&filter=${encodeURIComponent(filter)}&sortBy=${encodeURIComponent(
+        sortBy
+      )}&direction=${encodeURIComponent(direction)}`
+    ),
 
   getSummary: () => httpClient.get("/api/products/summary"),
 
@@ -36,8 +51,6 @@ export const api = {
 
   consumeItem: (id) => httpClient.put(`/api/products/${id}/consume`),
 
-  login: (payload) => httpClient.post("/api/users/login", payload),
-
   // ===== RECIPES =====
   async generateRecipes(excludeRecipeIds = []) {
     const data = await httpClient.post("/api/recipes/generate", {
@@ -45,19 +58,16 @@ export const api = {
     });
 
     const list = Array.isArray(data) ? data : [];
-
     return list.map(normalizeRecipe);
   },
 
   async getRecipes() {
     const data = await httpClient.get("/api/recipes");
-
     return (Array.isArray(data) ? data : []).map(normalizeRecipe);
   },
 
   async getRecipeById(id) {
     const data = await httpClient.get(`/api/recipes/${id}`);
-
     return normalizeRecipe(data || {});
   },
 };

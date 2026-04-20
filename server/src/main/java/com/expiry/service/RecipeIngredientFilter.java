@@ -84,14 +84,12 @@ public class RecipeIngredientFilter {
 
         String normalized = normalize(productName);
 
-        // 1) loại các keyword rõ ràng
         for (String keyword : EXCLUDED_KEYWORDS) {
             if (normalized.contains(keyword)) {
                 return false;
             }
         }
 
-        // 2) loại một số pattern “gần như chắc chắn là món ăn hoàn chỉnh”
         if (looksLikeReadyMeal(normalized)) {
             return false;
         }
@@ -104,8 +102,6 @@ public class RecipeIngredientFilter {
         // "chicken coconut quinoa turmeric"
         // "beef rice vegetable meal"
         // "salmon pasta bake"
-        //
-        // Ý tưởng:
         // nếu tên dài + có nhiều từ mô tả món ăn hoàn chỉnh thì loại.
         boolean hasMealWord =
                 normalized.contains(" meal") ||

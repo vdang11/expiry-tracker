@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { api } from "../api/apiClient";
 import {
@@ -6,9 +6,10 @@ import {
   subscribeAuthChange,
 } from "../api/authStorage";
 
+const PAGE_SIZE = 20;
+
 export default function Dashboard() {
   const navigate = useNavigate();
-
   const ctx = useOutletContext() || {};
   const search = ctx.search || "";
 
@@ -16,13 +17,15 @@ export default function Dashboard() {
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+
   const [summary, setSummary] = useState({
     expired: 0,
     soon: 0,
     ok: 0,
   });
 
-  // ===== AUTH SYNC =====
   useEffect(() => {
     const unsubscribe = subscribeAuthChange(() => {
       setUserId(getCurrentUserId());
@@ -31,14 +34,16 @@ export default function Dashboard() {
     return unsubscribe;
   }, []);
 
-  // redirect nếu chưa login
   useEffect(() => {
     if (userId === null) {
       navigate("/login", { replace: true });
     }
   }, [userId, navigate]);
 
-  // ===== LOAD DATA =====
+  useEffect(() => {
+    setPage(0);
+  }, [search, filter]);
+
   useEffect(() => {
     if (!userId) {
       setItems([]);
@@ -47,24 +52,27 @@ export default function Dashboard() {
         soon: 0,
         ok: 0,
       });
+      setTotalPages(0);
       setLoading(false);
       return;
     }
 
     let alive = true;
 
-    (async () => {
+    async function loadData() {
       try {
         setLoading(true);
 
-        const [itemsData, summaryData] = await Promise.all([
-          api.getItems(),
+        const [itemsRes, summaryData] = await Promise.all([
+          api.getItems(page, PAGE_SIZE, search, filter, "expiryDate", "asc"),
           api.getSummary(),
         ]);
 
         if (!alive) return;
 
-        setItems(itemsData || []);
+        setItems(itemsRes?.content || []);
+        setTotalPages(itemsRes?.totalPages || 0);
+
         setSummary({
           expired: summaryData?.expired || 0,
           soon: summaryData?.expiringSoon || 0,
@@ -73,48 +81,22 @@ export default function Dashboard() {
       } catch (e) {
         console.error(e);
       } finally {
-        if (alive) setLoading(false);
+        if (alive) {
+          setLoading(false);
+        }
       }
-    })();
+    }
+
+    loadData();
 
     return () => {
       alive = false;
     };
-  }, [userId]);
+  }, [userId, page, search, filter]);
 
-  // ================= FILTERING + =================
-  const filteredItems = useMemo(() => {
-    let list = items.filter((it) => it?.itemStatus !== "CONSUMED");
-
-    // search
-    if (search && search.trim()) {
-      const q = search.toLowerCase();
-
-      list = list.filter((it) =>
-        (it?.productName || "").toLowerCase().includes(q)
-      );
-    }
-
-    // filter
-    if (filter !== "all") {
-      list = list.filter((it) => {
-        if (filter === "expired") return it?.expiryStatus === "EXPIRED";
-        if (filter === "soon") return it?.expiryStatus === "EXPIRING_SOON";
-        if (filter === "ok") return it?.expiryStatus === "FRESH";
-        return true;
-      });
-    }
-
-    // sort theo expiryDate (gần nhất trước)
-    list.sort((a, b) => {
-      if (!a.expiryDate) return 1;
-      if (!b.expiryDate) return -1;
-
-      return new Date(a.expiryDate) - new Date(b.expiryDate);
-    });
-
-    return list;
-  }, [items, search, filter]);
+  function handleFilterChange(nextFilter) {
+    setFilter(nextFilter);
+  }
 
   return (
     <div className="space-y-4">
@@ -137,7 +119,7 @@ export default function Dashboard() {
           value={summary.expired}
           active={filter === "expired"}
           tone="danger"
-          onClick={() => setFilter("expired")}
+          onClick={() => handleFilterChange("expired")}
         />
 
         <SummaryCard
@@ -145,7 +127,7 @@ export default function Dashboard() {
           value={summary.soon}
           active={filter === "soon"}
           tone="warn"
-          onClick={() => setFilter("soon")}
+          onClick={() => handleFilterChange("soon")}
         />
 
         <SummaryCard
@@ -153,25 +135,28 @@ export default function Dashboard() {
           value={summary.ok}
           active={filter === "ok"}
           tone="neutral"
-          onClick={() => setFilter("ok")}
+          onClick={() => handleFilterChange("ok")}
         />
       </div>
 
       {/* ================= FILTER PILLS ================= */}
       <div className="flex flex-wrap gap-2">
-        <Pill active={filter === "all"} onClick={() => setFilter("all")}>
+        <Pill active={filter === "all"} onClick={() => handleFilterChange("all")}>
           All
         </Pill>
 
-        <Pill active={filter === "expired"} onClick={() => setFilter("expired")}>
+        <Pill
+          active={filter === "expired"}
+          onClick={() => handleFilterChange("expired")}
+        >
           Expired
         </Pill>
 
-        <Pill active={filter === "soon"} onClick={() => setFilter("soon")}>
+        <Pill active={filter === "soon"} onClick={() => handleFilterChange("soon")}>
           Expiring soon
         </Pill>
 
-        <Pill active={filter === "ok"} onClick={() => setFilter("ok")}>
+        <Pill active={filter === "ok"} onClick={() => handleFilterChange("ok")}>
           OK
         </Pill>
       </div>
@@ -184,14 +169,14 @@ export default function Dashboard() {
           </div>
         )}
 
-        {!loading && filteredItems.length === 0 && (
+        {!loading && items.length === 0 && (
           <div className="rounded-2xl border border-line bg-card p-4 text-muted">
             No matching items
           </div>
         )}
 
         {!loading &&
-          filteredItems.map((it) => {
+          items.map((it) => {
             const daysLeft = calculateDaysLeft(it?.expiryDate);
 
             return (
@@ -224,6 +209,29 @@ export default function Dashboard() {
             );
           })}
       </div>
+
+      {/* ================= PAGINATION ================= */}
+      <div className="flex justify-center gap-2">
+        <button
+          disabled={page === 0}
+          onClick={() => setPage((p) => p - 1)}
+          className="px-3 py-1 border border-line rounded"
+        >
+          Prev
+        </button>
+
+        <span className="text-sm text-muted">
+          Page {totalPages === 0 ? 0 : page + 1} / {totalPages}
+        </span>
+
+        <button
+          disabled={page >= totalPages - 1 || totalPages === 0}
+          onClick={() => setPage((p) => p + 1)}
+          className="px-3 py-1 border border-line rounded"
+        >
+          Next
+        </button>
+      </div>
     </div>
   );
 }
@@ -233,8 +241,8 @@ function SummaryCard({ label, value, active, tone, onClick }) {
     tone === "danger"
       ? "text-red-300"
       : tone === "warn"
-        ? "text-yellow-200"
-        : "text-white";
+      ? "text-yellow-200"
+      : "text-white";
 
   return (
     <button
@@ -247,7 +255,6 @@ function SummaryCard({ label, value, active, tone, onClick }) {
       }
     >
       <div className={`text-2xl font-bold ${toneClass}`}>{value}</div>
-
       <div className="mt-1 text-sm text-muted">{label}</div>
     </button>
   );

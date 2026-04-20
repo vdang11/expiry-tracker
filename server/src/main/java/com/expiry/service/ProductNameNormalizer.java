@@ -5,7 +5,6 @@ import java.util.regex.Pattern;
 
 public final class ProductNameNormalizer {
 
-    // Pattern nhận diện phần KHÔNG PHẢI tên thực phẩm
     private static final Pattern TRAILING_FOOD_INFO_PATTERN = Pattern.compile(
             "(\\b\\d+%\\b)|" +                          // 87%
                     "(\\b\\d+\\s?(g|kg|ml|l|oz)\\b)|" +          // 500g, 1kg, 330ml
@@ -18,12 +17,6 @@ public final class ProductNameNormalizer {
 
     private ProductNameNormalizer() {}
 
-    /**
-     * Normalize product name cho domain THỰC PHẨM
-     *
-     * @param rawProductName tên thực phẩm raw từ AI (có thể null)
-     * @return tên thực phẩm đã clean hoặc null
-     */
     public static String normalize(String rawProductName) {
 
         // 1. Null-safe
@@ -31,7 +24,6 @@ public final class ProductNameNormalizer {
             return null;
         }
 
-        // 2. Dọn ký tự xuống dòng, tab
         String cleaned = rawProductName
                 .replace("\n", " ")
                 .replace("\r", " ")
@@ -42,10 +34,7 @@ public final class ProductNameNormalizer {
             return null;
         }
 
-        // 3. Collapse space
         cleaned = cleaned.replaceAll("\\s{2,}", " ");
-
-        // 4. Cắt phần dinh dưỡng / khối lượng
         String[] tokens = cleaned.split(" ");
         StringBuilder nameBuilder = new StringBuilder();
 
@@ -61,7 +50,6 @@ public final class ProductNameNormalizer {
             nameOnly = cleaned;
         }
 
-        // 5. Title Case đơn giản cho food
         return toTitleCase(nameOnly);
     }
 

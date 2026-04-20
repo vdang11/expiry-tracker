@@ -55,7 +55,6 @@ public class ExpiryDecisionEngine {
         LocalDate date = LocalDate.parse(expiry);
         LocalDate today = LocalDate.now();
 
-        // phải check unrealistic trước generic past
         if (date.isBefore(today.minusYears(5))) {
             return reject("UNREALISTIC_PAST_DATE", "ASK_USER_RESCAN");
         }
