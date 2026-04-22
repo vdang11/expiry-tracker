@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import Logo from "../assets/logo.svg";
 import {
-  clearCurrentUser,
+  clearAuth,
   getCurrentUser,
   subscribeAuthChange,
 } from "../api/authStorage";
@@ -46,7 +46,7 @@ export default function TopBar({ search = "", onSearchChange = () => {} }) {
   }, [currentUser]);
 
   const handleLogout = () => {
-    clearCurrentUser();
+    clearAuth();
     navigate("/login", { replace: true });
   };
 
@@ -61,7 +61,6 @@ export default function TopBar({ search = "", onSearchChange = () => {} }) {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-3 px-4 py-3">
-      {/* Logo */}
       <button
         onClick={() => navigate("/")}
         className="order-1 flex shrink-0 items-center gap-2"
@@ -72,7 +71,6 @@ export default function TopBar({ search = "", onSearchChange = () => {} }) {
         </span>
       </button>
 
-      {/* User */}
       <div className="order-2 ml-auto flex shrink-0 items-center gap-2 sm:order-3">
         <span className="flex size-7 items-center justify-center rounded-full bg-slate-700 text-xs font-medium">
           {initial}
@@ -95,7 +93,6 @@ export default function TopBar({ search = "", onSearchChange = () => {} }) {
         </button>
       </div>
 
-      {/* Search */}
       {showSearch && (
         <input
           value={input}

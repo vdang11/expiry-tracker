@@ -1,7 +1,9 @@
 package com.expiry.entity;
 
 import jakarta.persistence.*;
-import lombok.*;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -14,20 +16,21 @@ import java.util.List;
                 @Index(name = "idx_recipe_user_id", columnList = "user_id")
         }
 )
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
-@AllArgsConstructor
-@Builder
 public class Recipe {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    // ===== RELATION =====
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
+    // ===== BASIC FIELDS =====
     @Column(nullable = false)
     private String title;
 
@@ -37,12 +40,16 @@ public class Recipe {
     @Column(length = 5000)
     private String steps;
 
-    @OneToMany(mappedBy = "recipe", cascade = CascadeType.ALL, orphanRemoval = true)
-    @Builder.Default
+    @OneToMany(
+            mappedBy = "recipe",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
     private List<RecipeIngredient> recipeIngredients = new ArrayList<>();
 
     private LocalDateTime createdAt;
 
+    // ===== LIFECYCLE =====
     @PrePersist
     public void prePersist() {
         this.createdAt = LocalDateTime.now();

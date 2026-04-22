@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -57,7 +56,6 @@ public class RecipeService {
         List<RecipeResponse> result = new ArrayList<>();
         Set<String> uncovered = new HashSet<>(expiringIngredients);
 
-        // ===== DB REUSE =====
         List<Recipe> candidates = recipeRepository.findReusableRecipes(
                 userId,
                 ingredients,
@@ -89,7 +87,6 @@ public class RecipeService {
             uncovered.removeAll(recipeIngredients);
         }
 
-        // ===== AI FALLBACK =====
         if (!uncovered.isEmpty()) {
 
             List<RecipeResponse> generated =
@@ -148,13 +145,72 @@ public class RecipeService {
 
         for (RecipeResponse r : responses) {
             Recipe savedRecipe = saveRecipeWithIngredients(userId, r);
-
             saved.add(mapToResponse(savedRecipe, true, normalizedExpiring));
         }
 
         return saved;
     }
 
+    // ===== SAVE (NO BUILDER) =====
+    private Recipe saveRecipeWithIngredients(Long userId,
+                                             RecipeResponse response) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
+                );
+
+        Recipe recipe = new Recipe();
+        recipe.setUser(user);
+        recipe.setTitle(safeText(response.getTitle()));
+        recipe.setIngredients(joinSafe(response.getIngredients(), ", "));
+        recipe.setSteps(joinSafe(response.getSteps(), "\n"));
+
+        Recipe saved = recipeRepository.save(recipe);
+
+        List<String> normalized = normalizeAndFilterIngredients(response.getIngredients());
+
+        for (String name : normalized) {
+            Ingredient ingredient = ingredientService.findOrCreate(name);
+
+            boolean exists = recipeIngredientRepository
+                    .existsByRecipe_IdAndIngredient_Id(
+                            saved.getId(),
+                            ingredient.getId()
+                    );
+
+            if (!exists) {
+                RecipeIngredient mapping = new RecipeIngredient();
+                mapping.setRecipe(saved);
+                mapping.setIngredient(ingredient);
+
+                recipeIngredientRepository.save(mapping);
+            }
+        }
+
+        return saved;
+    }
+
+    // ===== PARSE =====
+    private List<RecipeResponse> parseResponse(String rawText) {
+        try {
+            String cleaned = rawText
+                    .replace("```json", "")
+                    .replace("```", "")
+                    .trim();
+
+            return objectMapper.readValue(
+                    cleaned,
+                    new TypeReference<List<RecipeResponse>>() {});
+        } catch (Exception e) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid AI response format"
+            );
+        }
+    }
+
+    // ===== MAPPER =====
     private RecipeResponse mapToResponse(
             Recipe recipe,
             boolean fromAI,
@@ -178,71 +234,6 @@ public class RecipeService {
                 .fromAI(fromAI)
                 .expiringIngredients(matchedExpiring)
                 .build();
-    }
-
-    // ===== PARSE =====
-    private List<RecipeResponse> parseResponse(String rawText) {
-        try {
-            String cleaned = rawText
-                    .replace("```json", "")
-                    .replace("```", "")
-                    .trim();
-
-            return objectMapper.readValue(
-                    cleaned,
-                    new TypeReference<List<RecipeResponse>>() {}
-            );
-        } catch (Exception e) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Invalid AI response format"
-            );
-        }
-    }
-
-    // ===== SAVE =====
-    private Recipe saveRecipeWithIngredients(Long userId,
-                                             RecipeResponse response) {
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
-                );
-
-        Recipe recipe = Recipe.builder()
-                .user(user)
-                .title(safeText(response.getTitle()))
-                .ingredients(joinSafe(response.getIngredients(), ", "))
-                .steps(joinSafe(response.getSteps(), "\n"))
-                .build();
-
-        Recipe saved = recipeRepository.save(recipe);
-
-        List<String> raw = response.getIngredients();
-        List<String> normalized = normalizeAndFilterIngredients(raw);
-
-        for (String name : normalized) {
-            Ingredient ingredient = ingredientService.findOrCreate(name);
-
-            boolean exists = recipeIngredientRepository
-                    .existsByRecipe_IdAndIngredient_Id(
-                            saved.getId(),
-                            ingredient.getId()
-                    );
-
-            if (!exists) {
-                try {
-                    RecipeIngredient mapping = RecipeIngredient.builder()
-                            .recipe(saved)
-                            .ingredient(ingredient)
-                            .build();
-
-                    recipeIngredientRepository.save(mapping);
-                } catch (Exception ignored) {}
-            }
-        }
-
-        return saved;
     }
 
     // ===== UTILS =====

@@ -1,4 +1,4 @@
-import { getCurrentUserId } from "./authStorage";
+import { getToken, clearAuth } from "./authStorage";
 
 async function request(url, options = {}) {
   const {
@@ -13,16 +13,16 @@ async function request(url, options = {}) {
 
   let finalBody = body;
 
-  // ===== AUTO JSON =====
+  // ===== JSON =====
   if (body && !(body instanceof FormData)) {
     finalHeaders["Content-Type"] = "application/json";
     finalBody = JSON.stringify(body);
   }
 
-  // ===== AUTO USER HEADER =====
-  const userId = getCurrentUserId();
-  if (userId) {
-    finalHeaders["X-User-Id"] = String(userId);
+  // ===== JWT =====
+  const token = getToken();
+  if (token) {
+    finalHeaders["Authorization"] = `Bearer ${token}`;
   }
 
   try {
@@ -31,6 +31,17 @@ async function request(url, options = {}) {
       headers: finalHeaders,
       body: finalBody,
     });
+
+    if (response.status === 401) {
+      clearAuth();
+
+      // tránh redirect loop
+      if (!window.location.pathname.includes("/login")) {
+        window.location.replace("/#/login");
+      }
+
+      return;
+    }
 
     let data = null;
 
@@ -50,6 +61,7 @@ async function request(url, options = {}) {
     }
 
     return data;
+
   } catch (error) {
     console.error("HTTP ERROR:", error);
 
@@ -59,7 +71,6 @@ async function request(url, options = {}) {
   }
 }
 
-// ===== METHODS =====
 export const httpClient = {
   get: (url) => request(url),
 

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import AuthLayout from "../layouts/AuthLayout";
-import { saveCurrentUser } from "../api/authStorage";
 import { api } from "../api/apiClient";
+import { saveToken } from "../api/authStorage";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -38,16 +38,16 @@ export default function Login() {
     try {
       setLoading(true);
 
-      const user = await api.login({
+      //API trả về data chứa token
+      const data = await api.login({
         email: form.email,
         password: form.password,
       });
 
-      saveCurrentUser({
-        id: user.id,
-        email: user.email,
-      });
+      // SAVE TOKEN
+      saveToken(data.token);
 
+      //redirect
       navigate("/");
     } catch (err) {
       console.error(err);

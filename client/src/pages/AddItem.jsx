@@ -4,7 +4,7 @@ import { CalendarDaysIcon, ArrowPathIcon } from "@heroicons/react/24/outline";
 import toast from "react-hot-toast";
 import { api } from "../api/apiClient";
 import "react-datepicker/dist/react-datepicker.css";
-import { getCurrentUserId } from "../api/authStorage";
+import { getCurrentUser } from "../api/authStorage";
 
 const MAX_IMAGES = 2;
 

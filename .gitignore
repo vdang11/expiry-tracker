@@ -1,5 +1,7 @@
+# ===============================
 # Logs
-logs
+# ===============================
+logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -7,32 +9,49 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-node_modules
-dist
-dist-ssr
+# ===============================
+# Environment (SECRET - MUST IGNORE)
+# ===============================
+.env
+.env.*
+
+# ===============================
+# Node / Frontend
+# ===============================
+node_modules/
+dist/
+dist-ssr/
 *.local
 
-# Editor directories and files
+# ===============================
+# Backend (Spring Boot)
+# ===============================
+server/target/
+server/*.log
+server/application-local.yml
+
+# ===============================
+# IDE - IntelliJ
+# ===============================
+.idea/
+*.iml
+
+# ===============================
+# IDE - VSCode
+# ===============================
 .vscode/*
 !.vscode/extensions.json
-.idea
+
+# ===============================
+# OS
+# ===============================
 .DS_Store
+
+# ===============================
+# Misc (Visual Studio, temp files)
+# ===============================
 *.suo
 *.ntvs*
 *.njsproj
 *.sln
 *.sw?
-.env
-
-# Backend (Spring Boot)
-server/target/
-server/.mvn/wrapper/maven-wrapper.jar
-server/*.log
-server/application-local.yml
-server/.vscode/launch.json
-
-# Node
-package-lock.json
-
-# IntelliJ
-*.iml

@@ -10,7 +10,8 @@ spring:
       ddl-auto: update
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
+    show-sql: false
 
   mail:
     host: localhost
@@ -24,11 +25,21 @@ spring:
           connectiontimeout: 5000
           timeout: 5000
           writetimeout: 5000
+logging:
+  level:
+    org.hibernate.SQL: OFF
+    org.hibernate.orm.jdbc.bind: OFF
+    org.hibernate.type.descriptor.sql.BasicBinder: OFF
 
 reminder:
   window-days: 3
   cron: "0 0 8 * * *"
   from-email: "u@gmail.com"
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 1800000
+
 server:
   address: 0.0.0.0
   port: 8080

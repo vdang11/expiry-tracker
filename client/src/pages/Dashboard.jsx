@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { api } from "../api/apiClient";
 import {
-  getCurrentUserId,
+  getCurrentUser,
   subscribeAuthChange,
 } from "../api/authStorage";
 
@@ -13,7 +13,7 @@ export default function Dashboard() {
   const ctx = useOutletContext() || {};
   const search = ctx.search || "";
 
-  const [userId, setUserId] = useState(() => getCurrentUserId());
+  const [userId, setUserId] = useState(() => getCurrentUser()?.id || null);
   const [items, setItems] = useState([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
@@ -28,7 +28,7 @@ export default function Dashboard() {
 
   useEffect(() => {
     const unsubscribe = subscribeAuthChange(() => {
-      setUserId(getCurrentUserId());
+      setUserId(getCurrentUser()?.id || null);
     });
 
     return unsubscribe;

@@ -1,8 +1,9 @@
 import { Navigate } from "react-router-dom";
-import { getCurrentUserId } from "../api/authStorage";
+import { getCurrentUser } from "../api/authStorage";
 
 export default function StartupRedirect() {
-  const userId = getCurrentUserId();
+  const user = getCurrentUser();
+  const userId = user?.id;
 
   return userId
     ? <Navigate to="/dashboard" replace />
