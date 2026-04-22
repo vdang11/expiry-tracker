@@ -1,10 +1,10 @@
 package com.expiry.controller;
 
-import com.expiry.dto.ProductResponse;
-import com.expiry.dto.ProductSummaryResponse;
-import com.expiry.dto.SaveProductRequest;
+import com.expiry.dto.ItemResponse;
+import com.expiry.dto.ItemSummaryResponse;
+import com.expiry.dto.SaveItemRequest;
 import com.expiry.security.CurrentUserProvider;
-import com.expiry.service.ProductService;
+import com.expiry.service.ItemService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
@@ -12,22 +12,21 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/products")
-@CrossOrigin(origins = "*")
 @RequiredArgsConstructor
-public class ProductController {
+public class ItemController {
 
-    private final ProductService productService;
+    private final ItemService itemService;
     private final CurrentUserProvider currentUserProvider;
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public ProductResponse saveConfirmedProduct(@RequestBody SaveProductRequest request) {
+    public ItemResponse saveConfirmedProduct(@RequestBody SaveItemRequest request) {
         Long currentUserId = currentUserProvider.getCurrentUserId();
-        return productService.saveConfirmedProduct(request, currentUserId);
+        return itemService.saveConfirmedProduct(request, currentUserId);
     }
 
     @GetMapping
-    public Page<ProductResponse> getProducts(
+    public Page<ItemResponse> getItems(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String search,
@@ -37,7 +36,7 @@ public class ProductController {
     ) {
         Long currentUserId = currentUserProvider.getCurrentUserId();
 
-        return productService.getProducts(
+        return itemService.getItems(
                 currentUserId,
                 page,
                 size,
@@ -49,26 +48,26 @@ public class ProductController {
     }
 
     @GetMapping("/summary")
-    public ProductSummaryResponse getSummary() {
+    public ItemSummaryResponse getSummary() {
         Long currentUserId = currentUserProvider.getCurrentUserId();
-        return productService.getSummary(currentUserId);
+        return itemService.getSummary(currentUserId);
     }
 
     @GetMapping("/{id}")
-    public ProductResponse getById(@PathVariable Long id) {
+    public ItemResponse getById(@PathVariable Long id) {
         Long currentUserId = currentUserProvider.getCurrentUserId();
-        return productService.getById(id, currentUserId);
+        return itemService.getById(id, currentUserId);
     }
 
     @DeleteMapping("/{id}")
     public void delete(@PathVariable Long id) {
         Long currentUserId = currentUserProvider.getCurrentUserId();
-        productService.delete(id, currentUserId);
+        itemService.delete(id, currentUserId);
     }
 
     @PutMapping("/{id}/consume")
-    public ProductResponse consume(@PathVariable Long id) {
+    public ItemResponse consume(@PathVariable Long id) {
         Long currentUserId = currentUserProvider.getCurrentUserId();
-        return productService.consume(id, currentUserId);
+        return itemService.consume(id, currentUserId);
     }
 }

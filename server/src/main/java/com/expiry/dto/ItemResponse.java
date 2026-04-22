@@ -4,7 +4,7 @@ import com.expiry.service.ExpiryStatus;
 
 @Getter
 @AllArgsConstructor
-public class ProductResponse {
+public class ItemResponse {
 
     private Long id;
     private String productName;

@@ -11,7 +11,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/vision")
-@CrossOrigin(origins = "*")
 @Slf4j
 public class ExpiryController {
 

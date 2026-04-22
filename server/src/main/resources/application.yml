@@ -8,10 +8,11 @@ spring:
   jpa:
     hibernate:
       ddl-auto: update
+    show-sql: false
     properties:
       hibernate:
+        show_sql: false
         format_sql: false
-    show-sql: false
 
   mail:
     host: localhost
@@ -25,21 +26,32 @@ spring:
           connectiontimeout: 5000
           timeout: 5000
           writetimeout: 5000
+
+# =========================
+# KILL ALL HIBERNATE LOG
+# =========================
 logging:
   level:
-    org.hibernate.SQL: OFF
-    org.hibernate.orm.jdbc.bind: OFF
-    org.hibernate.type.descriptor.sql.BasicBinder: OFF
+    org.hibernate: OFF
 
+# =========================
+# REMINDER CONFIG
+# =========================
 reminder:
-  window-days: 3
-  cron: "0 0 8 * * *"
-  from-email: "u@gmail.com"
+  window-days: ${REMINDER_WINDOW_DAYS:3}
+  cron: ${REMINDER_CRON:0 0 8 * * *}
+  from-email: ${REMINDER_FROM_EMAIL:no-reply@expiry.local}
 
+# =========================
+# JWT
+# =========================
 jwt:
   secret: ${JWT_SECRET}
   expiration: 1800000
 
+# =========================
+# SERVER
+# =========================
 server:
   address: 0.0.0.0
   port: 8080

@@ -1,11 +1,11 @@
 package com.expiry.service;
 
-import com.expiry.dto.ProductResponse;
-import com.expiry.dto.ProductSummaryResponse;
-import com.expiry.dto.SaveProductRequest;
+import com.expiry.dto.ItemResponse;
+import com.expiry.dto.ItemSummaryResponse;
+import com.expiry.dto.SaveItemRequest;
 import com.expiry.entity.Item;
 import com.expiry.entity.User;
-import com.expiry.repository.ProductRepository;
+import com.expiry.repository.ItemRepository;
 import com.expiry.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
@@ -19,15 +19,16 @@ import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-public class ProductService {
+public class ItemService {
 
-    private final ProductRepository productRepository;
+    private final ItemRepository itemRepository;
     private final UserRepository userRepository;
     private final ExpiryDateNormalizer expiryDateNormalizer;
     private final ExpiryService expiryService;
+    private final NotificationService notificationService;
 
     // ================= SAVE =================
-    public ProductResponse saveConfirmedProduct(SaveProductRequest request, Long userId) {
+    public ItemResponse saveConfirmedProduct(SaveItemRequest request, Long userId) {
 
         LocalDate normalizedDate = expiryDateNormalizer.normalize(request.getExpiryDate());
 
@@ -44,13 +45,20 @@ public class ProductService {
         item.setItemStatus("ACTIVE");
         item.setUser(user);
 
-        Item saved = productRepository.save(item);
+        Item saved = itemRepository.save(item);
+
+        //NOTIFICATION (ADD)
+        notificationService.createNotification(
+                user,
+                "Item Added",
+                saved.getProductName() + " has been added"
+        );
 
         return mapToResponse(saved);
     }
 
-    // ================= GET PRODUCTS (CORE) =================
-    public Page<ProductResponse> getProducts(
+    // ================= GET ITEMS =================
+    public Page<ItemResponse> getItems(
             Long userId,
             int page,
             int size,
@@ -61,35 +69,27 @@ public class ProductService {
     ) {
 
         String keyword = (search == null || search.isBlank()) ? null : search.trim();
-
-        // 🔥 HYBRID SEARCH RULE
         boolean useContains = keyword != null && keyword.length() >= 3;
 
         List<Item> items;
 
-        // ===== FETCH =====
         if (keyword != null) {
             if (useContains) {
-                items = productRepository
+                items = itemRepository
                         .findByUser_IdAndItemStatusAndProductNameContainingIgnoreCase(
-                                userId,
-                                "ACTIVE",
-                                keyword
+                                userId, "ACTIVE", keyword
                         );
             } else {
-                items = productRepository
+                items = itemRepository
                         .findByUser_IdAndItemStatusAndProductNameStartingWithIgnoreCase(
-                                userId,
-                                "ACTIVE",
-                                keyword
+                                userId, "ACTIVE", keyword
                         );
             }
         } else {
-            items = productRepository.findByUser_IdAndItemStatus(userId, "ACTIVE");
+            items = itemRepository.findByUser_IdAndItemStatus(userId, "ACTIVE");
         }
 
-        // ===== FILTER (DÙNG ExpiryService) =====
-        List<ProductResponse> filtered = items.stream()
+        List<ItemResponse> filtered = items.stream()
                 .filter(item -> matchFilter(item, filter))
                 .map(this::mapToResponse)
                 .sorted(buildComparator(sortBy, direction))
@@ -116,26 +116,26 @@ public class ProductService {
     }
 
     // ================= SORT =================
-    private Comparator<ProductResponse> buildComparator(String sortBy, String direction) {
+    private Comparator<ItemResponse> buildComparator(String sortBy, String direction) {
 
         boolean desc = "desc".equalsIgnoreCase(direction);
 
-        Comparator<ProductResponse> comparator;
+        Comparator<ItemResponse> comparator;
 
         switch (sortBy) {
             case "productName" ->
-                    comparator = Comparator.comparing(ProductResponse::getProductName, String.CASE_INSENSITIVE_ORDER);
+                    comparator = Comparator.comparing(ItemResponse::getProductName, String.CASE_INSENSITIVE_ORDER);
             case "expiryDate" ->
-                    comparator = Comparator.comparing(ProductResponse::getExpiryDate);
+                    comparator = Comparator.comparing(ItemResponse::getExpiryDate);
             default ->
-                    comparator = Comparator.comparing(ProductResponse::getExpiryDate);
+                    comparator = Comparator.comparing(ItemResponse::getExpiryDate);
         }
 
         return desc ? comparator.reversed() : comparator;
     }
 
     // ================= PAGINATION =================
-    private Page<ProductResponse> toPage(List<ProductResponse> list, int page, int size) {
+    private Page<ItemResponse> toPage(List<ItemResponse> list, int page, int size) {
 
         int start = page * size;
 
@@ -153,9 +153,9 @@ public class ProductService {
     }
 
     // ================= SUMMARY =================
-    public ProductSummaryResponse getSummary(Long userId) {
+    public ItemSummaryResponse getSummary(Long userId) {
 
-        List<Item> items = productRepository.findByUser_IdAndItemStatus(userId, "ACTIVE");
+        List<Item> items = itemRepository.findByUser_IdAndItemStatus(userId, "ACTIVE");
 
         long expired = 0;
         long expiringSoon = 0;
@@ -174,13 +174,13 @@ public class ProductService {
             }
         }
 
-        return new ProductSummaryResponse(expired, expiringSoon, fresh);
+        return new ItemSummaryResponse(expired, expiringSoon, fresh);
     }
 
     // ================= DETAIL =================
-    public ProductResponse getById(Long id, Long userId) {
+    public ItemResponse getById(Long id, Long userId) {
 
-        Item item = productRepository.findByIdAndUser_Id(id, userId)
+        Item item = itemRepository.findByIdAndUser_Id(id, userId)
                 .orElseThrow(() ->
                         new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found")
                 );
@@ -191,33 +191,47 @@ public class ProductService {
     // ================= DELETE =================
     public void delete(Long id, Long userId) {
 
-        Item item = productRepository.findByIdAndUser_Id(id, userId)
+        Item item = itemRepository.findByIdAndUser_Id(id, userId)
                 .orElseThrow(() ->
                         new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found")
                 );
 
-        productRepository.delete(item);
+        itemRepository.delete(item);
+
+        // NOTIFICATION (DELETE)
+        notificationService.createNotification(
+                item.getUser(),
+                "Item Deleted",
+                item.getProductName() + " has been deleted"
+        );
     }
 
     // ================= CONSUME =================
-    public ProductResponse consume(Long id, Long userId) {
+    public ItemResponse consume(Long id, Long userId) {
 
-        Item item = productRepository.findByIdAndUser_Id(id, userId)
+        Item item = itemRepository.findByIdAndUser_Id(id, userId)
                 .orElseThrow(() ->
                         new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found")
                 );
 
         item.setItemStatus("CONSUMED");
 
-        Item updated = productRepository.save(item);
+        Item updated = itemRepository.save(item);
+
+        //NOTIFICATION (CONSUME)
+        notificationService.createNotification(
+                item.getUser(),
+                "Item Consumed",
+                item.getProductName() + " has been consumed"
+        );
 
         return mapToResponse(updated);
     }
 
     // ================= MAPPER =================
-    private ProductResponse mapToResponse(Item item) {
+    private ItemResponse mapToResponse(Item item) {
 
-        return new ProductResponse(
+        return new ItemResponse(
                 item.getId(),
                 item.getProductName(),
                 item.getExpiryDate() != null ? item.getExpiryDate().toString() : null,

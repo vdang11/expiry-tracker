@@ -25,6 +25,7 @@ public class ReminderEmailService {
             helper.setText(htmlBody, true);
 
             mailSender.send(message);
+
         } catch (Exception ex) {
             throw new IllegalStateException("Failed to send reminder email", ex);
         }

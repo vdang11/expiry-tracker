@@ -6,10 +6,15 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 import java.util.Optional;
 
-public interface ProductRepository extends JpaRepository<Item, Long> {
+public interface ItemRepository extends JpaRepository<Item, Long> {
 
-    // ===== ALL =====
+    // ===== ALL BY USER =====
     List<Item> findByUser_IdAndItemStatus(Long userId, String itemStatus);
+
+    // ===== ALL ACTIVE FOR REMINDER JOB =====
+    List<Item> findByItemStatus(String itemStatus);
+
+    List<Item> findByItemStatusAndExpiryDateIsNotNull(String itemStatus);
 
     // ===== PREFIX =====
     List<Item> findByUser_IdAndItemStatusAndProductNameStartingWithIgnoreCase(

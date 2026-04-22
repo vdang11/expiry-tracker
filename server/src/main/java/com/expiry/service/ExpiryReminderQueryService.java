@@ -1,41 +1,43 @@
 package com.expiry.service;
 
 import com.expiry.entity.Item;
-import com.expiry.repository.ProductRepository;
+import com.expiry.repository.ItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class ExpiryReminderQueryService {
 
-    private final ProductRepository productRepository;
-    private final ExpiryService expiryService;
+    private final ItemRepository itemRepository;
 
     public List<Item> findExpiringSoonItems(int windowDays) {
 
-        List<Item> items = productRepository.findByUser_IdAndItemStatus(null, "ACTIVE");
+        LocalDate today = LocalDate.now();
+        LocalDate limit = today.plusDays(windowDays);
 
-        return items.stream()
+        return itemRepository.findByItemStatus("ACTIVE")
+                .stream()
                 .filter(item -> item.getExpiryDate() != null)
                 .filter(item ->
-                        expiryService.calculateStatus(item.getExpiryDate())
-                                == ExpiryStatus.EXPIRING_SOON
+                        !item.getExpiryDate().isBefore(today) &&
+                                !item.getExpiryDate().isAfter(limit)
                 )
                 .toList();
     }
 
     public List<Item> findExpiredItems() {
 
-        List<Item> items = productRepository.findByUser_IdAndItemStatus(null, "ACTIVE");
+        LocalDate today = LocalDate.now();
 
-        return items.stream()
+        return itemRepository.findByItemStatus("ACTIVE")
+                .stream()
                 .filter(item -> item.getExpiryDate() != null)
                 .filter(item ->
-                        expiryService.calculateStatus(item.getExpiryDate())
-                                == ExpiryStatus.EXPIRED
+                        item.getExpiryDate().isBefore(today)
                 )
                 .toList();
     }

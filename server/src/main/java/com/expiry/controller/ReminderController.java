@@ -15,6 +15,7 @@ public class ReminderController {
 
     @PostMapping("/send-now")
     public Map<String, Object> sendNow() {
+
         int usersNotified = reminderService.sendDailyReminders();
 
         return Map.of(

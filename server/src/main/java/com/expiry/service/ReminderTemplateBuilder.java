@@ -26,7 +26,9 @@ public class ReminderTemplateBuilder {
         html.append("<h2 style='color:#d97706; margin-top:0;'>Expiry Reminder</h2>");
 
         if (userName != null && !userName.isBlank()) {
-            html.append("<p>Hello <strong>").append(escape(userName)).append("</strong>,</p>");
+            html.append("<p>Hello <strong>")
+                    .append(escape(userName))
+                    .append("</strong>,</p>");
         } else {
             html.append("<p>Hello,</p>");
         }
@@ -36,6 +38,7 @@ public class ReminderTemplateBuilder {
         LocalDate today = LocalDate.now();
 
         for (Item item : items) {
+
             long daysLeft = ChronoUnit.DAYS.between(today, item.getExpiryDate());
 
             String statusText;

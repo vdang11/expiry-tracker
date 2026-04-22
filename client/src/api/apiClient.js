@@ -70,4 +70,22 @@ export const api = {
     const data = await httpClient.get(`/api/recipes/${id}`);
     return normalizeRecipe(data || {});
   },
+
+// ===== NOTIFICATIONS =====
+getNotifications: () => httpClient.get("/api/notifications"),
+
+markNotificationRead: (id) =>
+  httpClient.put(`/api/notifications/${id}/read`),
+
+deleteNotification: (id) =>
+  httpClient.delete(`/api/notifications/${id}`),
+
+clearAllNotifications: () =>
+  httpClient.delete("/api/notifications"),
+
+  // ===== PROFILE =====
+  getProfile: () => httpClient.get("/api/profile"),
+
+  updateEmailReminder: (enabled) =>
+    httpClient.put("/api/profile/email-reminder", { enabled }),
 };

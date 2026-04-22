@@ -2,7 +2,7 @@ package com.expiry.service;
 
 import com.expiry.dto.RecipeAggregationResult;
 import com.expiry.entity.Item;
-import com.expiry.repository.ProductRepository;
+import com.expiry.repository.ItemRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,7 +14,7 @@ import java.util.*;
 @RequiredArgsConstructor
 public class RecipeAggregationService {
 
-    private final ProductRepository productRepository;
+    private final ItemRepository itemRepository;
     private final RecipeIngredientFilter recipeIngredientFilter;
 
     public List<String> getIngredientsForRecipe(Long userId) {
@@ -25,7 +25,7 @@ public class RecipeAggregationService {
 
         LocalDate today = LocalDate.now();
 
-        List<Item> items = productRepository.findByUser_IdAndItemStatus(userId, "ACTIVE");
+        List<Item> items = itemRepository.findByUser_IdAndItemStatus(userId, "ACTIVE");
 
         List<String> expiring = items.stream()
                 .filter(item -> item.getExpiryDate() != null)

@@ -23,37 +23,32 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        // 1. Lấy header Authorization
         String authHeader = request.getHeader("Authorization");
 
-        // 2. Nếu không có hoặc không đúng format → skip
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             filterChain.doFilter(request, response);
             return;
         }
 
         try {
-            // 3. Lấy token
             String token = authHeader.substring(7);
 
-            // 4. Validate token
             if (!jwtService.isTokenValid(token)) {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
 
-            // 5. Extract userId
             Long userId = jwtService.extractUserId(token);
 
-            // 6. Gắn userId vào request
+            // attach to request
             request.setAttribute("currentUserId", userId);
 
         } catch (Exception e) {
+            e.printStackTrace(); // for debug
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             return;
         }
 
-        // 7. Continue request
         filterChain.doFilter(request, response);
     }
 }

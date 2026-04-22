@@ -9,14 +9,39 @@ import Profile from "./pages/Profile";
 import SignUp from "./pages/SignUp";
 import StartupRedirect from "./components/StartupRedirect";
 import Login from "./pages/Login";
+import ProtectedRoute from "./components/ProtectedRoute";
+import PublicRoute from "./components/PublicRoute";
 
 export default function App() {
   return (
     <Routes>
-      <Route path="/signup" element={<SignUp />} />
-      <Route path="/login" element={<Login />} />
+      {/* ===== PUBLIC ===== */}
+      <Route
+        path="/signup"
+        element={
+          <PublicRoute>
+            <SignUp />
+          </PublicRoute>
+        }
+      />
 
-      <Route element={<AppLayout />}>
+      <Route
+        path="/login"
+        element={
+          <PublicRoute>
+            <Login />
+          </PublicRoute>
+        }
+      />
+
+      {/* ===== PROTECTED (có layout) ===== */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }
+      >
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/menu" element={<MenuSuggestions />} />
         <Route path="/add" element={<AddItem />} />
@@ -25,7 +50,10 @@ export default function App() {
         <Route path="/profile" element={<Profile />} />
       </Route>
 
+      {/* ===== ROOT ===== */}
       <Route path="/" element={<StartupRedirect />} />
+
+      {/* ===== FALLBACK ===== */}
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

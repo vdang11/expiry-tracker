@@ -32,6 +32,9 @@ public class User {
 
     private LocalDateTime createdAt;
 
+    @Column(name = "email_reminder_enabled", nullable = false)
+    private boolean emailReminderEnabled = true;
+
     @OneToMany(mappedBy = "user")
     @Builder.Default
     private List<Item> items = new ArrayList<>();

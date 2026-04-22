@@ -29,26 +29,28 @@ async function request(url, options = {}) {
     const response = await fetch(url, {
       method,
       headers: finalHeaders,
-      body: finalBody,
+      ...(method !== "GET" && { body: finalBody }),
     });
 
+    // ===== 401 =====
     if (response.status === 401) {
       clearAuth();
 
-      // tránh redirect loop
       if (!window.location.pathname.includes("/login")) {
         window.location.replace("/#/login");
       }
 
-      return;
+      throw new Error("Unauthorized"); 
     }
 
     let data = null;
 
-    try {
-      data = await response.json();
-    } catch {
-      data = null;
+    if (response.status !== 204) {
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
     }
 
     if (!response.ok) {

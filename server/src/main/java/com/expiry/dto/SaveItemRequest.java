@@ -9,7 +9,7 @@ import lombok.NoArgsConstructor;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class SaveProductRequest {
+public class SaveItemRequest {
     private String productName;
     private String expiryDate;
     private Double confidence;

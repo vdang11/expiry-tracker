@@ -13,5 +13,5 @@ public class ReminderProperties {
 
     private int windowDays = 3;
     private String cron = "0 0 8 * * *";
-    private String fromEmail = "noreply@expiry.com";
+    private String fromEmail = "no-reply@expiry.local";
 }
