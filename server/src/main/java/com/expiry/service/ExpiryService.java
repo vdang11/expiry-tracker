@@ -10,8 +10,6 @@ public class ExpiryService {
 
     public ExpiryStatus calculateStatus(LocalDate expiryDate) {
 
-        if (expiryDate == null) return ExpiryStatus.FRESH;
-
         LocalDate today = LocalDate.now();
 
         if (expiryDate.isBefore(today)) {
@@ -26,9 +24,6 @@ public class ExpiryService {
     }
 
     public Long calculateDaysLeft(LocalDate expiryDate) {
-
-        if (expiryDate == null) return null;
-
         return ChronoUnit.DAYS.between(LocalDate.now(), expiryDate);
     }
 }

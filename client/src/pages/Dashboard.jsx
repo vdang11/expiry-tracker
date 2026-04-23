@@ -15,6 +15,7 @@ export default function Dashboard() {
 
   const [userId, setUserId] = useState(() => getCurrentUser()?.id || null);
   const [items, setItems] = useState([]);
+  const [totalItems, setTotalItems] = useState(0); // 🔥 NEW
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(0);
@@ -47,6 +48,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!userId) {
       setItems([]);
+      setTotalItems(0);
       setSummary({
         expired: 0,
         soon: 0,
@@ -72,6 +74,7 @@ export default function Dashboard() {
 
         setItems(itemsRes?.content || []);
         setTotalPages(itemsRes?.totalPages || 0);
+        setTotalItems(itemsRes?.totalItems || 0); // 🔥 KEY FIX
 
         setSummary({
           expired: summaryData?.expired || 0,
@@ -100,7 +103,7 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4">
-      {/* ================= HEADER ================= */}
+      {/* HEADER */}
       <div className="flex justify-between items-center p-2">
         <h2 className="text-lg font-semibold">Expiry Overview</h2>
 
@@ -112,57 +115,24 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* ================= SUMMARY ================= */}
+      {/* SUMMARY */}
       <div className="grid grid-cols-3 gap-3">
-        <SummaryCard
-          label="Expired"
-          value={summary.expired}
-          active={filter === "expired"}
-          tone="danger"
-          onClick={() => handleFilterChange("expired")}
-        />
-
-        <SummaryCard
-          label="Expiring soon"
-          value={summary.soon}
-          active={filter === "soon"}
-          tone="warn"
-          onClick={() => handleFilterChange("soon")}
-        />
-
-        <SummaryCard
-          label="OK"
-          value={summary.ok}
-          active={filter === "ok"}
-          tone="neutral"
-          onClick={() => handleFilterChange("ok")}
-        />
+        <SummaryCard label="Expired" value={summary.expired} active={filter === "expired"} tone="danger" onClick={() => handleFilterChange("expired")} />
+        <SummaryCard label="Expiring soon" value={summary.soon} active={filter === "soon"} tone="warn" onClick={() => handleFilterChange("soon")} />
+        <SummaryCard label="OK" value={summary.ok} active={filter === "ok"} tone="neutral" onClick={() => handleFilterChange("ok")} />
       </div>
 
-      {/* ================= FILTER PILLS ================= */}
+      {/* FILTER */}
       <div className="flex flex-wrap gap-2">
-        <Pill active={filter === "all"} onClick={() => handleFilterChange("all")}>
-          All
-        </Pill>
-
-        <Pill
-          active={filter === "expired"}
-          onClick={() => handleFilterChange("expired")}
-        >
-          Expired
-        </Pill>
-
-        <Pill active={filter === "soon"} onClick={() => handleFilterChange("soon")}>
-          Expiring soon
-        </Pill>
-
-        <Pill active={filter === "ok"} onClick={() => handleFilterChange("ok")}>
-          OK
-        </Pill>
+        <Pill active={filter === "all"} onClick={() => handleFilterChange("all")}>All</Pill>
+        <Pill active={filter === "expired"} onClick={() => handleFilterChange("expired")}>Expired</Pill>
+        <Pill active={filter === "soon"} onClick={() => handleFilterChange("soon")}>Expiring soon</Pill>
+        <Pill active={filter === "ok"} onClick={() => handleFilterChange("ok")}>OK</Pill>
       </div>
 
-      {/* ================= LIST ================= */}
+      {/* LIST */}
       <div className="space-y-3">
+
         {loading && (
           <div className="rounded-2xl border border-line bg-card p-4 text-muted">
             Loading items...
@@ -170,8 +140,28 @@ export default function Dashboard() {
         )}
 
         {!loading && items.length === 0 && (
-          <div className="rounded-2xl border border-line bg-card p-4 text-muted">
-            No matching items
+          <div className="rounded-2xl border border-line bg-card p-4 text-muted text-center">
+
+            {totalItems === 0 ? (
+              <>
+                <div className="text-base font-medium">
+                  You don’t have any items yet
+                </div>
+                <div className="text-sm mt-1">
+                  Start by adding your first item
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="text-base font-medium">
+                  No matching items
+                </div>
+                <div className="text-sm mt-1">
+                  Try changing your search or filters
+                </div>
+              </>
+            )}
+
           </div>
         )}
 
@@ -210,13 +200,9 @@ export default function Dashboard() {
           })}
       </div>
 
-      {/* ================= PAGINATION ================= */}
+      {/* PAGINATION giữ nguyên */}
       <div className="flex justify-center gap-2">
-        <button
-          disabled={page === 0}
-          onClick={() => setPage((p) => p - 1)}
-          className="px-3 py-1 border border-line rounded"
-        >
+        <button disabled={page === 0} onClick={() => setPage((p) => p - 1)} className="px-3 py-1 border border-line rounded">
           Prev
         </button>
 

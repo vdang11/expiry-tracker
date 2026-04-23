@@ -14,8 +14,14 @@ import java.util.*;
 @RequiredArgsConstructor
 public class RecipeAggregationService {
 
+    private static final String ACTIVE = "ACTIVE";
+    private static final int EXPIRING_DAYS_THRESHOLD = 3;
+    private static final int MAX_STABLE_ITEMS = 3;
+
     private final ItemRepository itemRepository;
     private final RecipeIngredientFilter recipeIngredientFilter;
+
+    // ================= PUBLIC API =================
 
     public List<String> getIngredientsForRecipe(Long userId) {
         return getAggregationResult(userId).getIngredients();
@@ -25,11 +31,11 @@ public class RecipeAggregationService {
 
         LocalDate today = LocalDate.now();
 
-        List<Item> items = itemRepository.findByUser_IdAndItemStatus(userId, "ACTIVE");
+        List<Item> items = itemRepository.findByUser_IdAndItemStatus(userId, ACTIVE);
 
+        // ===== EXPIRING ITEMS =====
         List<String> expiring = items.stream()
-                .filter(item -> item.getExpiryDate() != null)
-                .filter(item -> daysBetween(today, item.getExpiryDate()) <= 3)
+                .filter(item -> isExpiringSoon(today, item.getExpiryDate()))
                 .map(Item::getProductName)
                 .filter(this::isValidName)
                 .filter(recipeIngredientFilter::isCookableIngredient)
@@ -37,33 +43,38 @@ public class RecipeAggregationService {
                 .distinct()
                 .toList();
 
+        // ===== STABLE ITEMS =====
         List<String> stable = items.stream()
-                .filter(item -> item.getExpiryDate() != null)
-                .filter(item -> daysBetween(today, item.getExpiryDate()) > 3)
+                .filter(item -> isStable(today, item.getExpiryDate()))
                 .map(Item::getProductName)
                 .filter(this::isValidName)
                 .filter(recipeIngredientFilter::isCookableIngredient)
                 .map(this::normalize)
                 .distinct()
-                .limit(3)
+                .limit(MAX_STABLE_ITEMS)
                 .toList();
 
-        List<String> all = new ArrayList<>(expiring);
-
-        for (String s : stable) {
-            if (!all.contains(s)) {
-                all.add(s);
-            }
-        }
+        // ===== MERGE (EXPIRING PRIORITY) =====
+        List<String> all = mergeIngredients(expiring, stable);
 
         return new RecipeAggregationResult(userId, expiring, stable, all);
     }
 
-    // ===== helpers =====
+    // ================= BUSINESS HELPERS =================
+
+    private boolean isExpiringSoon(LocalDate today, LocalDate expiryDate) {
+        return daysBetween(today, expiryDate) <= EXPIRING_DAYS_THRESHOLD;
+    }
+
+    private boolean isStable(LocalDate today, LocalDate expiryDate) {
+        return daysBetween(today, expiryDate) > EXPIRING_DAYS_THRESHOLD;
+    }
 
     private long daysBetween(LocalDate today, LocalDate date) {
         return ChronoUnit.DAYS.between(today, date);
     }
+
+    // ================= DATA CLEANING =================
 
     private boolean isValidName(String name) {
         return name != null && !name.trim().isBlank();
@@ -71,5 +82,20 @@ public class RecipeAggregationService {
 
     private String normalize(String text) {
         return text.trim().toLowerCase();
+    }
+
+    // ================= MERGE LOGIC =================
+
+    private List<String> mergeIngredients(List<String> expiring, List<String> stable) {
+
+        List<String> result = new ArrayList<>(expiring);
+
+        for (String ingredient : stable) {
+            if (!result.contains(ingredient)) {
+                result.add(ingredient);
+            }
+        }
+
+        return result;
     }
 }

@@ -1,5 +1,11 @@
 import { httpClient } from "./httpClient";
 
+// ===== BASE URL (MULTI-ENV FIX) =====
+const BASE_URL =
+  import.meta.env.MODE === "production"
+    ? import.meta.env.VITE_API_URL
+    : "";
+
 // ===== NORMALIZE =====
 function normalize(value) {
   return (value || "").trim().toLowerCase();
@@ -18,11 +24,15 @@ function normalizeRecipe(recipe) {
 // ===== API =====
 export const api = {
   // ===== AUTH =====
-  signup: (payload) => httpClient.post("/api/users/signup", payload),
-  login: (payload) => httpClient.post("/api/users/login", payload),
+  signup: (payload) =>
+    httpClient.post(`${BASE_URL}/api/users/signup`, payload),
+
+  login: (payload) =>
+    httpClient.post(`${BASE_URL}/api/users/login`, payload),
 
   // ===== VISION =====
-  scanImages: (formData) => httpClient.post("/api/vision/scan", formData),
+  scanImages: (formData) =>
+    httpClient.post(`${BASE_URL}/api/vision/scan`, formData),
 
   // ===== ITEMS =====
   getItems: (
@@ -34,58 +44,71 @@ export const api = {
     direction = "asc"
   ) =>
     httpClient.get(
-      `/api/products?page=${page}&size=${size}&search=${encodeURIComponent(
+      `${BASE_URL}/api/products?page=${page}&size=${size}&search=${encodeURIComponent(
         search
       )}&filter=${encodeURIComponent(filter)}&sortBy=${encodeURIComponent(
         sortBy
       )}&direction=${encodeURIComponent(direction)}`
     ),
 
-  getSummary: () => httpClient.get("/api/products/summary"),
+  getSummary: () =>
+    httpClient.get(`${BASE_URL}/api/products/summary`),
 
-  getItemById: (id) => httpClient.get(`/api/products/${id}`),
+  getItemById: (id) =>
+    httpClient.get(`${BASE_URL}/api/products/${id}`),
 
-  saveItem: (payload) => httpClient.post("/api/products", payload),
+  saveItem: (payload) =>
+    httpClient.post(`${BASE_URL}/api/products`, payload),
 
-  deleteItem: (id) => httpClient.delete(`/api/products/${id}`),
+  deleteItem: (id) =>
+    httpClient.delete(`${BASE_URL}/api/products/${id}`),
 
-  consumeItem: (id) => httpClient.put(`/api/products/${id}/consume`),
+  consumeItem: (id) =>
+    httpClient.put(`${BASE_URL}/api/products/${id}/consume`),
 
   // ===== RECIPES =====
   async generateRecipes(excludeRecipeIds = []) {
-    const data = await httpClient.post("/api/recipes/generate", {
-      excludeRecipeIds,
-    });
+    const data = await httpClient.post(
+      `${BASE_URL}/api/recipes/generate`,
+      { excludeRecipeIds }
+    );
 
     const list = Array.isArray(data) ? data : [];
     return list.map(normalizeRecipe);
   },
 
   async getRecipes() {
-    const data = await httpClient.get("/api/recipes");
+    const data = await httpClient.get(`${BASE_URL}/api/recipes`);
     return (Array.isArray(data) ? data : []).map(normalizeRecipe);
   },
 
   async getRecipeById(id) {
-    const data = await httpClient.get(`/api/recipes/${id}`);
+    const data = await httpClient.get(
+      `${BASE_URL}/api/recipes/${id}`
+    );
     return normalizeRecipe(data || {});
   },
 
-// ===== NOTIFICATIONS =====
-getNotifications: () => httpClient.get("/api/notifications"),
+  // ===== NOTIFICATIONS =====
+  getNotifications: () =>
+    httpClient.get(`${BASE_URL}/api/notifications`),
 
-markNotificationRead: (id) =>
-  httpClient.put(`/api/notifications/${id}/read`),
+  markNotificationRead: (id) =>
+    httpClient.put(`${BASE_URL}/api/notifications/${id}/read`),
 
-deleteNotification: (id) =>
-  httpClient.delete(`/api/notifications/${id}`),
+  deleteNotification: (id) =>
+    httpClient.delete(`${BASE_URL}/api/notifications/${id}`),
 
-clearAllNotifications: () =>
-  httpClient.delete("/api/notifications"),
+  clearAllNotifications: () =>
+    httpClient.delete(`${BASE_URL}/api/notifications`),
 
   // ===== PROFILE =====
-  getProfile: () => httpClient.get("/api/profile"),
+  getProfile: () =>
+    httpClient.get(`${BASE_URL}/api/profile`),
 
   updateEmailReminder: (enabled) =>
-    httpClient.put("/api/profile/email-reminder", { enabled }),
+    httpClient.put(
+      `${BASE_URL}/api/profile/email-reminder`,
+      { enabled }
+    ),
 };

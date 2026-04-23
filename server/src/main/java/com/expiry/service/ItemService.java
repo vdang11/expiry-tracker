@@ -1,26 +1,28 @@
 package com.expiry.service;
 
-import com.expiry.dto.ItemResponse;
-import com.expiry.dto.ItemSummaryResponse;
-import com.expiry.dto.SaveItemRequest;
+import com.expiry.dto.*;
 import com.expiry.entity.Item;
 import com.expiry.entity.User;
 import com.expiry.repository.ItemRepository;
 import com.expiry.repository.UserRepository;
-import jakarta.annotation.Nonnull;
+import com.expiry.repository.projection.ItemSummaryProjection;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
-import java.util.Comparator;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
+@Transactional(readOnly = true)
 public class ItemService {
+
+    private static final String ACTIVE = "ACTIVE";
+    private static final String CONSUMED = "CONSUMED";
 
     private final ItemRepository itemRepository;
     private final UserRepository userRepository;
@@ -29,12 +31,23 @@ public class ItemService {
     private final NotificationService notificationService;
 
     // ================= SAVE =================
+    @Transactional
     public ItemResponse saveConfirmedProduct(SaveItemRequest request, Long userId) {
 
         LocalDate normalizedDate = expiryDateNormalizer.normalize(request.getExpiryDate());
 
+        // 🔴 Vì DB NOT NULL → phải validate tại đây
+        if (normalizedDate == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Expiry date is required"
+            );
+        }
+
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
+                );
 
         Item item = new Item();
         item.setProductName(request.getProductName().trim());
@@ -43,12 +56,11 @@ public class ItemService {
         item.setDateType(request.getDateType());
         item.setDecisionStatus(request.getDecisionStatus());
         item.setSuggestedAction(request.getSuggestedAction());
-        item.setItemStatus("ACTIVE");
+        item.setItemStatus(ACTIVE);
         item.setUser(user);
 
         Item saved = itemRepository.save(item);
 
-        //NOTIFICATION (ADD)
         notificationService.createNotification(
                 user,
                 "Item Added",
@@ -59,7 +71,7 @@ public class ItemService {
     }
 
     // ================= GET ITEMS =================
-    public Page<ItemResponse> getItems(
+    public ItemPageResponse getItems(
             Long userId,
             int page,
             int size,
@@ -69,113 +81,56 @@ public class ItemService {
             String direction
     ) {
 
-        String keyword = (search == null || search.isBlank()) ? null : search.trim();
+        String keyword = normalizeKeyword(search);
         boolean useContains = keyword != null && keyword.length() >= 3;
 
-        List<Item> items;
+        Pageable pageable = PageRequest.of(
+                page,
+                size,
+                buildSort(sortBy, direction)
+        );
 
-        if (keyword != null) {
-            if (useContains) {
-                items = itemRepository
-                        .findByUser_IdAndItemStatusAndProductNameContainingIgnoreCase(
-                                userId, "ACTIVE", keyword
-                        );
-            } else {
-                items = itemRepository
-                        .findByUser_IdAndItemStatusAndProductNameStartingWithIgnoreCase(
-                                userId, "ACTIVE", keyword
-                        );
-            }
-        } else {
-            items = itemRepository.findByUser_IdAndItemStatus(userId, "ACTIVE");
-        }
+        LocalDate today = LocalDate.now();
+        LocalDate soonDate = today.plusDays(3);
 
-        List<ItemResponse> filtered = items.stream()
-                .filter(item -> matchFilter(item, filter))
+        Page<Item> itemPage = itemRepository.findActiveItemsForList(
+                userId,
+                keyword,
+                useContains,
+                normalizeFilter(filter),
+                today,
+                soonDate,
+                pageable
+        );
+
+        List<ItemResponse> content = itemPage.getContent()
+                .stream()
                 .map(this::mapToResponse)
-                .sorted(buildComparator(sortBy, direction))
                 .toList();
 
-        return toPage(filtered, page, size);
-    }
-
-    // ================= FILTER =================
-    private boolean matchFilter(Item item, String filter) {
-
-        if (item.getExpiryDate() == null) return false;
-
-        ExpiryStatus status = expiryService.calculateStatus(item.getExpiryDate());
-
-        if (filter == null || filter.equals("all")) return true;
-
-        return switch (filter) {
-            case "expired" -> status == ExpiryStatus.EXPIRED;
-            case "soon" -> status == ExpiryStatus.EXPIRING_SOON;
-            case "ok" -> status == ExpiryStatus.FRESH;
-            default -> true;
-        };
-    }
-
-    // ================= SORT =================
-    private Comparator<ItemResponse> buildComparator(String sortBy, String direction) {
-
-        boolean desc = "desc".equalsIgnoreCase(direction);
-
-        Comparator<ItemResponse> comparator;
-
-        switch (sortBy) {
-            case "productName" ->
-                    comparator = Comparator.comparing(ItemResponse::getProductName, String.CASE_INSENSITIVE_ORDER);
-            case "expiryDate" ->
-                    comparator = Comparator.comparing(ItemResponse::getExpiryDate);
-            default ->
-                    comparator = Comparator.comparing(ItemResponse::getExpiryDate);
-        }
-
-        return desc ? comparator.reversed() : comparator;
-    }
-
-    // ================= PAGINATION =================
-    private Page<ItemResponse> toPage(List<ItemResponse> list, int page, int size) {
-
-        int start = page * size;
-
-        if (start >= list.size()) {
-            return new PageImpl<>(List.of(), PageRequest.of(page, size), list.size());
-        }
-
-        int end = Math.min(start + size, list.size());
-
-        return new PageImpl<>(
-                list.subList(start, end),
-                PageRequest.of(page, size),
-                list.size()
-        );
+        return ItemPageResponse.builder()
+                .content(content)
+                .page(itemPage.getNumber())
+                .size(itemPage.getSize())
+                .totalItems(itemPage.getTotalElements())
+                .totalPages(itemPage.getTotalPages())
+                .build();
     }
 
     // ================= SUMMARY =================
     public ItemSummaryResponse getSummary(Long userId) {
 
-        List<Item> items = itemRepository.findByUser_IdAndItemStatus(userId, "ACTIVE");
+        LocalDate today = LocalDate.now();
+        LocalDate soonDate = today.plusDays(3);
 
-        long expired = 0;
-        long expiringSoon = 0;
-        long fresh = 0;
+        ItemSummaryProjection summary =
+                itemRepository.getItemSummary(userId, today, soonDate);
 
-        for (Item item : items) {
-
-            if (item.getExpiryDate() == null) continue;
-
-            ExpiryStatus status = expiryService.calculateStatus(item.getExpiryDate());
-
-            switch (status) {
-                case EXPIRED -> expired++;
-                case EXPIRING_SOON -> expiringSoon++;
-                case FRESH -> fresh++;
-            }
-        }
-
-        return new ItemSummaryResponse(expired, expiringSoon, fresh);
+        return new ItemSummaryResponse(
+                summary.getExpiredCount(),
+                summary.getExpiringSoonCount(),
+                summary.getFreshCount()
+        );
     }
 
     // ================= DETAIL =================
@@ -190,6 +145,7 @@ public class ItemService {
     }
 
     // ================= DELETE =================
+    @Transactional
     public void delete(Long id, Long userId) {
 
         Item item = itemRepository.findByIdAndUser_Id(id, userId)
@@ -197,17 +153,20 @@ public class ItemService {
                         new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found")
                 );
 
+        User user = item.getUser();
+        String productName = item.getProductName();
+
         itemRepository.delete(item);
 
-        // NOTIFICATION (DELETE)
         notificationService.createNotification(
-                item.getUser(),
+                user,
                 "Item Deleted",
-                item.getProductName() + " has been deleted"
+                productName + " has been deleted"
         );
     }
 
     // ================= CONSUME =================
+    @Transactional
     public ItemResponse consume(Long id, Long userId) {
 
         Item item = itemRepository.findByIdAndUser_Id(id, userId)
@@ -215,38 +174,79 @@ public class ItemService {
                         new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found")
                 );
 
-        item.setItemStatus("CONSUMED");
+        item.setItemStatus(CONSUMED);
 
         Item updated = itemRepository.save(item);
 
-        //NOTIFICATION (CONSUME)
         notificationService.createNotification(
-                item.getUser(),
+                updated.getUser(),
                 "Item Consumed",
-                item.getProductName() + " has been consumed"
+                updated.getProductName() + " has been consumed"
         );
 
         return mapToResponse(updated);
     }
 
+    // ================= HELPERS =================
+    private String normalizeKeyword(String search) {
+        if (search == null || search.isBlank()) {
+            return null;
+        }
+        return search.trim();
+    }
+
+    private String normalizeFilter(String filter) {
+        if (filter == null || filter.isBlank()) {
+            return "all";
+        }
+
+        return switch (filter.toLowerCase()) {
+            case "expired" -> "expired";
+            case "soon" -> "soon";
+            case "ok" -> "ok";
+            default -> "all";
+        };
+    }
+
+    private Sort buildSort(String sortBy, String direction) {
+
+        String field = mapSortField(sortBy);
+
+        Sort.Direction dir =
+                "desc".equalsIgnoreCase(direction)
+                        ? Sort.Direction.DESC
+                        : Sort.Direction.ASC;
+
+        return Sort.by(dir, field);
+    }
+
+    private String mapSortField(String sortBy) {
+        if ("productName".equalsIgnoreCase(sortBy)) {
+            return "productName";
+        }
+        return "expiryDate";
+    }
+
     // ================= MAPPER =================
     private ItemResponse mapToResponse(Item item) {
+
+        ExpiryStatus expiryStatus =
+                expiryService.calculateStatus(item.getExpiryDate());
+
+        Long daysLeft =
+                expiryService.calculateDaysLeft(item.getExpiryDate());
 
         return new ItemResponse(
                 item.getId(),
                 item.getProductName(),
-                item.getExpiryDate() != null ? item.getExpiryDate().toString() : null,
+                item.getExpiryDate().toString(),
                 item.getConfidence(),
                 item.getDateType(),
                 item.getDecisionStatus(),
                 item.getSuggestedAction(),
-                item.getExpiryDate() != null
-                        ? expiryService.calculateStatus(item.getExpiryDate())
-                        : null,
+                expiryStatus,
                 item.getItemStatus(),
-                item.getExpiryDate() != null
-                        ? expiryService.calculateDaysLeft(item.getExpiryDate())
-                        : null
+                daysLeft
         );
     }
 }
