@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
 
@@ -8,21 +7,11 @@ services:
     restart: always
     ports:
       - "3306:3306"
-
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: expiry_tracker
-      MYSQL_CHARACTER_SET_SERVER: utf8mb4
-      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
-
     volumes:
-      - expiry_tracker_mysql_prod_data:/var/lib/mysql
-
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      - expiry_mysql_prod_data:/var/lib/mysql
 
   backend:
     build: ./server
@@ -30,28 +19,23 @@ services:
     restart: always
     ports:
       - "8080:8080"
-
     environment:
-      SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/expiry_tracker?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/expiry_tracker?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-
+      JWT_SECRET: ${JWT_SECRET}
     depends_on:
-      mysql:
-        condition: service_healthy
+      - mysql
 
   frontend:
     build: ./client
     container_name: expiry-frontend
     restart: always
     ports:
-      - "5173:80"
-
+      - "80:80"
     depends_on:
       - backend
 
 volumes:
-  expiry_tracker_mysql_prod_data:
-    name: expiry_tracker_mysql_prod_data
+  expiry_mysql_prod_data:

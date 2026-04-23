@@ -12,32 +12,18 @@ Expiry Tracker is a full-stack application that combines:
 * 🗓 Expiry tracking & decision engine
 * 🍳 Recipe recommendation (AI + DB hybrid)
 * ⏰ Automated reminder system (cron job)
-* 📧 Email testing via MailHog (development)
+* 📧 Email testing via MailHog
 * 🔐 JWT-based authentication (stateless)
 
 ---
 
 # 🏗 Architecture
 
-```text id="arch1"
+```
 client/   → React + Vite + Tailwind
 server/   → Spring Boot (API + AI logic)
 .env      → Environment variables
 docker-compose.* → Dev / Prod environments
-```
-
-System flow:
-
-```text id="arch2"
-Frontend (JWT)
-    ↓
-Backend (Spring Boot)
-    ↓
-MySQL
-    ↓
-OpenAI API (Vision + Recipe)
-    ↓
-MailHog (Email testing)
 ```
 
 ---
@@ -46,173 +32,102 @@ MailHog (Email testing)
 
 ## 📸 AI Expiry Scanning
 
-* Upload 1–2 images of product packaging
-* Extract expiry date using OpenAI Vision
-* Handles blurry / partial / missing data
+* Upload images (1–2)
+* Extract expiry date via OpenAI Vision
+* Handles blurry / missing data
 * Returns confidence + decision status
 
----
+## 🧠 Decision Engine
 
-## 🧠 Expiry Decision Engine
-
-* Classifies results into:
-
-  * ✅ CONFIRMED
-  * ⚠️ REVIEW
-  * ❌ REJECTED
+* CONFIRMED / REVIEW / REJECTED
 * Validates date format & plausibility
-* Prevents incorrect AI outputs
-
----
 
 ## 📦 Item Management
 
 * Add / delete / consume items
-* Expiry status:
+* Expiry states: Fresh / Expiring / Expired
+* Server-side filtering, sorting, pagination
 
-  * Fresh
-  * Expiring soon
-  * Expired
-* Dashboard with server-side filtering, sorting, pagination
+## 🍳 Recipe Recommendation
 
----
-
-## 🍳 Recipe Recommendation (Hybrid AI + DB)
-
-* Uses **expiring ingredients (≤ 3 days)** as priority
-* Strategy:
-
-  1. Reuse recipes from database
-  2. Fallback to AI generation
-* Ensures recipes include expiring items
-* Filters non-cookable items (snacks, ready meals)
-
----
+* Uses expiring ingredients (≤ 3 days)
+* DB-first → AI fallback
+* Filters non-cookable items
 
 ## ⏰ Reminder System
 
 * Daily cron job
-* Detects expiring items
 * Sends notifications
 
----
+## 🔐 Authentication
 
-## 📧 Email Testing (MailHog)
-
-```text id="mailhog"
-http://localhost:8025
-```
-
----
-
-## 🔐 Authentication (JWT)
-
-* Login returns JWT token
-* Token stored in localStorage (frontend)
-* Sent via Authorization header:
-
-```text id="auth1"
-Bearer <token>
-```
-
-* Backend validates token via filter
-* Uses SecurityContext for user context
-
-Protected APIs:
-
-* Products
-* Recipes
-* Notifications
-* Profile
-* Scan (prevent abuse)
+* JWT-based (stateless)
+* Token stored in frontend
+* Sent via Authorization header
 
 ---
 
 # 🛠 Tech Stack
 
-## Frontend
+Frontend:
 
-* React
-* Vite
-* Tailwind CSS
-* React Router (HashRouter)
-* react-hot-toast
+* React + Vite + Tailwind
 
-## Backend
+Backend:
 
-* Spring Boot
-* JPA / Hibernate
-* MySQL
+* Spring Boot + JPA + MySQL
 * Spring Security (JWT)
-* OpenAI API (Responses API)
 
-## Tools
+Tools:
 
 * IntelliJ IDEA
-* EnvFile Plugin
 * Docker
 * MailHog
 
 ---
 
-# 🚀 Getting Started (IntelliJ - Recommended)
+# 🚀 Getting Started (Local - Recommended)
 
 ## 1. Clone project
 
-```bash id="clone"
+```bash
 git clone <repo-url>
 cd expiry-tracker
 ```
 
 ---
 
-## 2. Setup Environment Variables
+## 2. Create `.env`
 
-Create `.env` in project root:
-
-```env id="env"
+```env
 JWT_SECRET=your-secret-key
 OPENAI_API_KEY=your-openai-key
 MYSQL_ROOT_PASSWORD=root
 ```
 
-⚠️ Do NOT commit `.env`
-
 ---
 
-## 3. Install IntelliJ Plugin
+## 3. Run Database (Docker only)
 
-Install:
-
-```text id="plugin"
-EnvFile
+```bash
+docker compose -f docker-compose.dev.yml up mysql
 ```
 
 ---
 
-## 4. Configure Run (Backend)
+## 4. Run Backend (IntelliJ)
 
-* Run → Edit Configurations
-* Enable:
-
-```text id="envfile"
-☑ Enable EnvFile
-```
-
+* Install plugin: **EnvFile**
+* Enable EnvFile in Run Configuration
 * Add `.env`
-* Leave other options OFF
+
+Run Spring Boot
 
 ---
 
-## 5. Run Backend
+## 5. Run Frontend
 
-Run Spring Boot from IntelliJ
-
----
-
-## 6. Run Frontend
-
-```bash id="frontend"
+```bash
 cd client
 npm install
 npm run dev
@@ -220,7 +135,7 @@ npm run dev
 
 ---
 
-## 7. Access
+## 6. Access
 
 * Frontend: http://localhost:5173
 * Backend: http://localhost:8080
@@ -228,49 +143,77 @@ npm run dev
 
 ---
 
+# 📱 Mobile Testing
+
+To test on mobile devices:
+
+1. Make sure phone and laptop are on the same WiFi network
+2. Use your laptop’s LAN IP (NOT localhost)
+
+Example:
+
+```
+http://192.168.x.x:8080
+```
+
+> Note:
+>
+> * `localhost` only works on the same device
+> * Works for both local and Docker setups (if ports are exposed)
+
+---
+
 # 🐳 Docker Setup
 
-## 📦 Dev Mode (Recommended for Development)
+---
 
-```bash id="dev1"
+## 📦 Dev Mode
+
+Used for development (hot reload, debugging)
+
+```bash
 docker compose -f docker-compose.dev.yml up
 ```
 
-Background:
+Run in background:
 
-```bash id="dev2"
+```bash
 docker compose -f docker-compose.dev.yml up -d
 ```
 
 Stop:
 
-```bash id="dev3"
+```bash
 docker compose -f docker-compose.dev.yml down
 ```
 
-Reset DB:
+Reset database:
 
-```bash id="dev4"
+```bash
 docker compose -f docker-compose.dev.yml down -v
 ```
 
+> Use `--build` only when dependencies or Dockerfile change
+
 ---
 
-## 🏭 Prod Mode (Simulate Production)
+## 🏭 Prod Mode
 
-```bash id="prod1"
+Used for production simulation
+
+```bash
 docker compose -f docker-compose.prod.yml up --build
 ```
 
-Background:
+Run in background:
 
-```bash id="prod2"
+```bash
 docker compose -f docker-compose.prod.yml up -d --build
 ```
 
 Stop:
 
-```bash id="prod3"
+```bash
 docker compose -f docker-compose.prod.yml down
 ```
 
@@ -286,75 +229,32 @@ docker compose -f docker-compose.prod.yml down
 
 ---
 
-# 🔐 Security Design
+# 🧠 Dev Workflow (Recommended)
 
-## JWT Flow
-
-```text id="jwtflow"
-Login → JWT → stored in frontend
-    ↓
-Request → JwtAuthenticationFilter
-    ↓
-SecurityContext
-    ↓
-Controller → Service → DB
+```
+Frontend + Backend → run locally
+Database → Docker
 ```
 
-## Key Notes
-
-* Payload is readable (Base64)
-* Signature ensures integrity
-* Secret key stored in environment variables
-* Stateless (no session)
+✔ Faster development
+✔ Easier debugging
+✔ Avoids Docker networking issues
 
 ---
 
-# 🧪 Testing
+# 🔐 Security
 
-## Implemented
+JWT Flow:
 
-* ExpiryDecisionEngine
-* ExpiryService
-* RecipeAggregationService
-
-## Planned
-
-* RecipeService
-* ScanExpiryService
-* Controller layer
-* Cron job logic
-
----
-
-# 📌 Current Status
-
-✔ Sprint 1 — AI Vision
-✔ Sprint 2 — Decision Engine
-✔ Sprint 3 — Persistence
-✔ Sprint 4 — Items + Dashboard
-✔ Sprint 5 — Reminder System
-✔ Sprint 6 — Recipe AI
-✔ JWT Authentication
-
----
-
-# 📈 Future Improvements
-
-* Role-based authorization (ADMIN / USER)
-* Refresh token flow
-* AWS deployment (S3 + RDS + SES)
-* CI/CD pipeline
-* Rate limiting for AI endpoints
-
----
-
-# 🧠 Design Decisions
-
-* Layered monolith architecture
-* JWT over session (stateless)
-* DB-first recipe reuse (reduce AI cost)
-* AI fallback strategy
-* Environment-based config (.env)
+```
+Login → JWT
+      ↓
+Request → JwtAuthenticationFilter
+      ↓
+SecurityContext
+      ↓
+Controller → Service → DB
+```
 
 ---
 
@@ -362,22 +262,64 @@ Controller → Service → DB
 
 ## ❌ Missing frontend dependency
 
-```text id="err1"
-Failed to resolve import react-datepicker
-```
-
-Fix:
-
-```bash id="fix1"
+```bash
 cd client
 npm install
 ```
+
+---
+
+## ❌ Mobile cannot connect
+
+Use LAN IP instead of localhost
+
+---
+
+## ❌ Docker ECONNREFUSED
+
+Cause:
+
+* Frontend calling `localhost` inside container
+
+Fix:
+
+* Use `backend:8080` (service name)
+
+---
+
+## ❌ Backend not starting
+
+```bash
+docker logs expiry-backend
+```
+
+---
+
+# 📌 Current Status
+
+✔ AI Vision
+✔ Decision Engine
+✔ Item Management
+✔ Reminder System
+✔ Recipe AI
+✔ JWT Authentication
+
+---
+
+# 📈 Future Improvements
+
+* Role-based authorization (ADMIN / USER)
+* AWS deployment (S3 + RDS + SES)
+* CI/CD pipeline
+* Rate limiting
+
+---
 
 # 👨‍💻 Author
 
 Full-stack project demonstrating:
 
-* Backend architecture (Spring Boot)
-* AI integration (Vision + Generation)
-* JWT authentication & security
+* Backend architecture
+* AI integration
+* JWT authentication
 * Real-world system design
