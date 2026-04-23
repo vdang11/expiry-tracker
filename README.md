@@ -10,32 +10,33 @@ Expiry Tracker is a full-stack application that combines:
 
 * 📸 AI Vision (scan expiry date from images)
 * 🗓 Expiry tracking & decision engine
+* 🍳 Recipe recommendation (AI + DB hybrid)
 * ⏰ Automated reminder system (cron job)
 * 📧 Email testing via MailHog (development)
-* 🍳 AI-powered recipe generation based on expiring items
+* 🔐 JWT-based authentication (stateless)
 
 ---
 
 # 🏗 Architecture
 
-Monorepo structure:
-
-```id="arch1"
-client/   → React + Vite + Tailwind (Frontend)
-server/   → Spring Boot (Backend API + AI)
+```text id="arch1"
+client/   → React + Vite + Tailwind
+server/   → Spring Boot (API + AI logic)
+.env      → Environment variables
+docker-compose.* → Dev / Prod environments
 ```
 
 System flow:
 
-```id="arch2"
-Frontend (React)
-      ↓
+```text id="arch2"
+Frontend (JWT)
+    ↓
 Backend (Spring Boot)
-      ↓
-MySQL Database
-      ↓
-OpenAI API (Vision + Recipe AI)
-      ↓
+    ↓
+MySQL
+    ↓
+OpenAI API (Vision + Recipe)
+    ↓
 MailHog (Email testing)
 ```
 
@@ -59,7 +60,7 @@ MailHog (Email testing)
   * ✅ CONFIRMED
   * ⚠️ REVIEW
   * ❌ REJECTED
-* Validates date format and plausibility
+* Validates date format & plausibility
 * Prevents incorrect AI outputs
 
 ---
@@ -67,135 +68,63 @@ MailHog (Email testing)
 ## 📦 Item Management
 
 * Add / delete / consume items
-* Track expiry status:
+* Expiry status:
 
   * Fresh
   * Expiring soon
   * Expired
-* Dashboard with filtering & search
+* Dashboard with server-side filtering, sorting, pagination
 
 ---
 
-## 🍳 Recipe Recommendation (AI + DB Hybrid)
+## 🍳 Recipe Recommendation (Hybrid AI + DB)
 
 * Uses **expiring ingredients (≤ 3 days)** as priority
 * Strategy:
 
   1. Reuse recipes from database
-  2. If not enough → generate using AI
+  2. Fallback to AI generation
 * Ensures recipes include expiring items
 * Filters non-cookable items (snacks, ready meals)
 
 ---
 
-## ⏰ Automated Reminder System (Cron)
+## ⏰ Reminder System
 
-* Scheduled job runs daily
-* Detects items that are near expiry
-* Triggers notification logic
+* Daily cron job
+* Detects expiring items
+* Sends notifications
 
 ---
 
 ## 📧 Email Testing (MailHog)
 
-* Email sending integrated with MailHog (development)
-* No real email is sent
-
-MailHog UI:
-
-```id="mailhog"
+```text id="mailhog"
 http://localhost:8025
 ```
 
 ---
 
-## 🔐 Authentication (WIP)
+## 🔐 Authentication (JWT)
 
-* Basic signup/login implemented
-* ❗ JWT authentication: **not yet implemented**
+* Login returns JWT token
+* Token stored in localStorage (frontend)
+* Sent via Authorization header:
 
----
+```text id="auth1"
+Bearer <token>
+```
 
-# 🧪 Testing
+* Backend validates token via filter
+* Uses SecurityContext for user context
 
-## ✅ Current Coverage
+Protected APIs:
 
-Unit tests implemented for core business logic:
-
-* ExpiryDecisionEngine
-* ExpiryService
-* IngredientNormalizer
-* RecipeIngredientFilter
-
-These cover the most critical and error-prone logic in the system.
-
----
-
-## ⚠️ Missing / Planned Tests
-
-To improve reliability and production readiness, the following tests are planned:
-
-### 🔹 Service Layer (High Priority)
-
-* RecipeService (core business logic)
-
-  * DB reuse vs AI fallback
-  * Ensure expiring ingredients are included
-  * Handle empty / edge cases
-
-* RecipeAggregationService
-
-  * Correct filtering (expiry ≤ 3 days)
-  * Exclude consumed items
-
----
-
-### 🔹 AI Integration
-
-* ScanExpiryService
-
-  * Parse OpenAI response
-  * Handle invalid / malformed JSON
-  * Strip markdown formatting
-
----
-
-### 🔹 Controller Layer
-
-* ProductController
-* UserController
-
-Focus:
-
-* request/response validation
-* API contract correctness
-
----
-
-### 🔹 Cron Job
-
-* Reminder job logic
-
-  * correct item selection
-  * exclude expired / consumed items
-
----
-
-### 🔹 Edge Cases
-
-* Invalid expiry date formats
-* Null values
-* Past / boundary dates
-
----
-
-## 🧠 Testing Philosophy
-
-Testing is focused on:
-
-* Core business logic (highest priority)
-* AI integration points (high risk)
-* Edge cases and data validation
+* Products
+* Recipes
+* Notifications
+* Profile
+* Scan (prevent abuse)
 
 ---
 
@@ -207,25 +136,26 @@ Testing is focused on:
 * Vite
 * Tailwind CSS
 * React Router (HashRouter)
+* react-hot-toast
 
 ## Backend
 
 * Spring Boot
 * JPA / Hibernate
 * MySQL
-* OpenAI Responses API
+* Spring Security (JWT)
+* OpenAI API (Responses API)
 
-## DevOps
+## Tools
 
-* Docker (Dev + Production)
-* Docker Compose
-* Environment config (.env)
-* Spring Scheduler (Cron)
+* IntelliJ IDEA
+* EnvFile Plugin
+* Docker
 * MailHog
 
 ---
 
-# 🚀 Getting Started
+# 🚀 Getting Started (IntelliJ - Recommended)
 
 ## 1. Clone project
 
@@ -236,26 +166,61 @@ cd expiry-tracker
 
 ---
 
-## 2. Setup environment variables
+## 2. Setup Environment Variables
 
-Create `.env` file:
+Create `.env` in project root:
 
 ```env id="env"
-MYSQL_ROOT_PASSWORD=yourpassword
-OPENAI_API_KEY=your-openai-api-key
+JWT_SECRET=your-secret-key
+OPENAI_API_KEY=your-openai-key
+MYSQL_ROOT_PASSWORD=root
+```
+
+⚠️ Do NOT commit `.env`
+
+---
+
+## 3. Install IntelliJ Plugin
+
+Install:
+
+```text id="plugin"
+EnvFile
 ```
 
 ---
 
-## 3. Run Dev Mode
+## 4. Configure Run (Backend)
 
-```bash id="dev"
-docker compose -f docker-compose.dev.yml up
+* Run → Edit Configurations
+* Enable:
+
+```text id="envfile"
+☑ Enable EnvFile
+```
+
+* Add `.env`
+* Leave other options OFF
+
+---
+
+## 5. Run Backend
+
+Run Spring Boot from IntelliJ
+
+---
+
+## 6. Run Frontend
+
+```bash id="frontend"
+cd client
+npm install
+npm run dev
 ```
 
 ---
 
-## 4. Access
+## 7. Access
 
 * Frontend: http://localhost:5173
 * Backend: http://localhost:8080
@@ -263,17 +228,101 @@ docker compose -f docker-compose.dev.yml up
 
 ---
 
-## ⚠️ Dev Note
+# 🐳 Docker Setup
 
-Backend auto-reload may not work reliably inside Docker (MacOS limitation).
+## 📦 Dev Mode (Recommended for Development)
 
-Recommended:
-
-```id="devnote"
-DB → Docker  
-Backend → run locally  
-Frontend → Docker / Vite  
+```bash id="dev1"
+docker compose -f docker-compose.dev.yml up
 ```
+
+Background:
+
+```bash id="dev2"
+docker compose -f docker-compose.dev.yml up -d
+```
+
+Stop:
+
+```bash id="dev3"
+docker compose -f docker-compose.dev.yml down
+```
+
+Reset DB:
+
+```bash id="dev4"
+docker compose -f docker-compose.dev.yml down -v
+```
+
+---
+
+## 🏭 Prod Mode (Simulate Production)
+
+```bash id="prod1"
+docker compose -f docker-compose.prod.yml up --build
+```
+
+Background:
+
+```bash id="prod2"
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+Stop:
+
+```bash id="prod3"
+docker compose -f docker-compose.prod.yml down
+```
+
+---
+
+# 🌐 Services
+
+| Service  | URL                   |
+| -------- | --------------------- |
+| Backend  | http://localhost:8080 |
+| Frontend | http://localhost:5173 |
+| MailHog  | http://localhost:8025 |
+
+---
+
+# 🔐 Security Design
+
+## JWT Flow
+
+```text id="jwtflow"
+Login → JWT → stored in frontend
+    ↓
+Request → JwtAuthenticationFilter
+    ↓
+SecurityContext
+    ↓
+Controller → Service → DB
+```
+
+## Key Notes
+
+* Payload is readable (Base64)
+* Signature ensures integrity
+* Secret key stored in environment variables
+* Stateless (no session)
+
+---
+
+# 🧪 Testing
+
+## Implemented
+
+* ExpiryDecisionEngine
+* ExpiryService
+* RecipeAggregationService
+
+## Planned
+
+* RecipeService
+* ScanExpiryService
+* Controller layer
+* Cron job logic
 
 ---
 
@@ -282,44 +331,53 @@ Frontend → Docker / Vite
 ✔ Sprint 1 — AI Vision
 ✔ Sprint 2 — Decision Engine
 ✔ Sprint 3 — Persistence
-✔ Sprint 4 — Dashboard & Items
-✔ Sprint 5 — Cron Reminder System
+✔ Sprint 4 — Items + Dashboard
+✔ Sprint 5 — Reminder System
 ✔ Sprint 6 — Recipe AI
-
-⏳ Pending:
-
-* JWT authentication
-* Production email service (e.g. AWS SES)
-* AWS deployment
-* CI/CD
-
----
-
-# 🧠 Key Design Decisions
-
-* Layered Monolith architecture
-* Expiry-driven logic
-* DB-first recipe reuse (reduce AI cost)
-* AI fallback strategy
-* Safe email testing via MailHog
+✔ JWT Authentication
 
 ---
 
 # 📈 Future Improvements
 
-* JWT authentication
-* AWS SES integration
-* Cloud deployment (S3 + RDS)
+* Role-based authorization (ADMIN / USER)
+* Refresh token flow
+* AWS deployment (S3 + RDS + SES)
 * CI/CD pipeline
-* Advanced personalization
+* Rate limiting for AI endpoints
 
 ---
 
+# 🧠 Design Decisions
+
+* Layered monolith architecture
+* JWT over session (stateless)
+* DB-first recipe reuse (reduce AI cost)
+* AI fallback strategy
+* Environment-based config (.env)
+
+---
+
+# ⚠️ Troubleshooting
+
+## ❌ Missing frontend dependency
+
+```text id="err1"
+Failed to resolve import react-datepicker
+```
+
+Fix:
+
+```bash id="fix1"
+cd client
+npm install
+```
+
 # 👨‍💻 Author
 
-Built as a full-stack project demonstrating:
+Full-stack project demonstrating:
 
 * Backend architecture (Spring Boot)
 * AI integration (Vision + Generation)
-* Automation with cron jobs
-* Test-driven mindset for critical logic
+* JWT authentication & security
+* Real-world system design
