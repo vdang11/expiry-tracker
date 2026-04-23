@@ -7,6 +7,7 @@ import com.expiry.entity.Item;
 import com.expiry.entity.User;
 import com.expiry.repository.ItemRepository;
 import com.expiry.repository.UserRepository;
+import jakarta.annotation.Nonnull;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.*;
 import org.springframework.http.HttpStatus;

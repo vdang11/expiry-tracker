@@ -136,13 +136,18 @@ export default function AddItem() {
       );
     });
 
+    if (!uniqueFiles.length) {
+      toast.error("Duplicate image selected.");
+      e.target.value = null;
+      return;
+    }
+
     const newPreviews = uniqueFiles.map((file) => URL.createObjectURL(file));
 
     setImageFiles((prev) => [...prev, ...uniqueFiles]);
     setImagePreviews((prev) => [...prev, ...newPreviews]);
 
     resetScanState();
-
     e.target.value = null;
   }
 
@@ -227,12 +232,20 @@ export default function AddItem() {
       return "Please select expiry date.";
     }
 
+    if (purchaseDate > today) {
+      return "Purchase date cannot be in the future.";
+    }
+
     if (expiryDate < purchaseDate) {
       return "Expiry date must be after purchase date.";
     }
 
     if (quantity <= 0) {
       return "Quantity must be greater than 0.";
+    }
+
+    if (!unit) {
+      return "Please select a unit.";
     }
 
     return null;
@@ -242,6 +255,7 @@ export default function AddItem() {
     !detecting &&
     Boolean(name.trim()) &&
     quantity > 0 &&
+    Boolean(unit) &&
     Boolean(purchaseDate) &&
     Boolean(expiryDate) &&
     (mode === "manual" || imageFiles.length > 0);
@@ -254,9 +268,9 @@ export default function AddItem() {
       return;
     }
 
-    const userId = getCurrentUserId();
+    const currentUser = getCurrentUser();
 
-    if (!userId) {
+    if (!currentUser?.id) {
       toast.error("User not logged in.");
       return;
     }
@@ -268,14 +282,13 @@ export default function AddItem() {
       dateType: "CONFIRMED",
       decisionStatus: "CONFIRMED",
       suggestedAction: "KEEP",
-      userId,
     };
 
     try {
       await api.saveItem(payload);
 
       toast.success("Item added successfully");
-      navigate("/");
+      navigate("/dashboard");
     } catch (error) {
       console.error(error);
       toast.error(error.message || "Cannot reach server.");
@@ -357,7 +370,7 @@ export default function AddItem() {
                 <div key={index} className="relative">
                   <img
                     src={src}
-                    alt={`Preview ${index}`}
+                    alt={`Preview ${index + 1}`}
                     className="max-h-48 w-full rounded-xl border border-line object-contain"
                   />
 
@@ -427,20 +440,10 @@ export default function AddItem() {
                 value={purchaseDate}
                 max={today}
                 onChange={(e) => setPurchaseDate(e.target.value)}
-                className="
-                  w-full rounded-xl border border-line bg-bg
-                  px-3 py-3 sm:py-2
-                  text-base sm:text-sm
-                  appearance-none
-                "
+                className="w-full appearance-none rounded-xl border border-line bg-bg px-3 py-3 text-base sm:py-2 sm:text-sm"
               />
 
-              <CalendarDaysIcon
-                className="
-                  pointer-events-none absolute right-3 top-1/2 hidden h-5 w-5
-                  -translate-y-1/2 text-muted sm:block
-                "
-              />
+              <CalendarDaysIcon className="pointer-events-none absolute right-3 top-1/2 hidden h-5 w-5 -translate-y-1/2 text-muted sm:block" />
             </div>
           </Field>
 
@@ -451,20 +454,10 @@ export default function AddItem() {
                 value={expiryDate}
                 min={today}
                 onChange={(e) => setExpiryDate(e.target.value)}
-                className="
-                  w-full rounded-xl border border-line bg-bg
-                  px-3 py-3 sm:py-2
-                  text-base sm:text-sm
-                  appearance-none
-                "
+                className="w-full appearance-none rounded-xl border border-line bg-bg px-3 py-3 text-base sm:py-2 sm:text-sm"
               />
 
-              <CalendarDaysIcon
-                className="
-                  pointer-events-none absolute right-3 top-1/2 hidden h-5 w-5
-                  -translate-y-1/2 text-muted sm:block
-                "
-              />
+              <CalendarDaysIcon className="pointer-events-none absolute right-3 top-1/2 hidden h-5 w-5 -translate-y-1/2 text-muted sm:block" />
             </div>
 
             {needsReview && (

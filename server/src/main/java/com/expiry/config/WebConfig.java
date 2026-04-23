@@ -2,8 +2,7 @@ package com.expiry.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+import org.springframework.web.servlet.config.annotation.*;
 
 @Configuration
 public class WebConfig {
@@ -16,8 +15,8 @@ public class WebConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
 
-                registry.addMapping("/**") // áp dụng cho tất cả endpoint
-                        .allowedOrigins("http://localhost:5173") // FE dev server
+                registry.addMapping("/**")
+                        .allowedOriginPatterns("*") // dev OK
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(false)
