@@ -9,7 +9,7 @@ export default function AppLayout() {
   const outletContext = useMemo(() => ({ search }), [search]);
 
   return (
-    <div className="h-screen bg-bg text-white flex flex-col overflow-hidden">
+    <div className="min-h-screen bg-bg text-white flex flex-col">
       <TopBar search={search} onSearchChange={setSearch} />
 
       <main className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
