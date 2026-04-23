@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Sparkles, RefreshCcw, ChevronRight, Utensils } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../api/apiClient";
@@ -9,7 +9,7 @@ function normalizeIngredient(value) {
   return (value || "").trim().toLowerCase();
 }
 
-// ===== FIX: STRICT MATCH (NO includes) =====
+// ===== STRICT MATCH =====
 function isExpiringIngredient(ingredient, expiringIngredients = []) {
   const ing = normalizeIngredient(ingredient);
 
@@ -28,63 +28,53 @@ export default function MenuSuggestions() {
   const [hasGenerated, setHasGenerated] = useState(false);
   const [seenRecipeIds, setSeenRecipeIds] = useState([]);
 
-  const currentUser = useMemo(() => {
+  // 🔥 FIX: REMOVE currentUser logic completely
+  // JWT đã được handle ở httpClient
+
+  async function handleGenerateRecipes() {
+    if (loading) return;
+
     try {
-      return JSON.parse(localStorage.getItem("currentUser"));
-    } catch {
-      return null;
+      setLoading(true);
+      setError("");
+      setHasGenerated(true);
+
+      const data = await api.generateRecipes(seenRecipeIds);
+      const list = Array.isArray(data) ? data : [];
+
+      setRecipes(list);
+
+      setSeenRecipeIds((prev) => {
+        const newIds = list.map((r) => r.id).filter(Boolean);
+        const merged = [...new Set([...prev, ...newIds])];
+        return merged.slice(-9);
+      });
+
+      setSelectedRecipe(null);
+
+      const fromAI = list.some((r) => r.fromAI);
+
+      toast.success(
+        fromAI ? "✨ Fresh recipes from AI" : "⚡ Loaded from database",
+        { id: "recipe-toast" }
+      );
+
+    } catch (err) {
+      setError(err.message || "Failed to generate recipes");
+
+      toast.error("Failed to generate recipes", {
+        id: "recipe-error"
+      });
+
+    } finally {
+      setLoading(false);
     }
-  }, []);
-
-async function handleGenerateRecipes() {
-  if (loading) return; // 🔥 anti spam
-
-  if (!currentUser?.id) {
-    setError("Please log in again.");
-    return;
   }
-
-  try {
-    setLoading(true);
-    setError("");
-    setHasGenerated(true);
-
-    const data = await api.generateRecipes(seenRecipeIds);
-    const list = Array.isArray(data) ? data : [];
-
-    setRecipes(list);
-
-    setSeenRecipeIds((prev) => {
-      const newIds = list.map((r) => r.id).filter(Boolean);
-      const merged = [...new Set([...prev, ...newIds])];
-      return merged.slice(-9);
-    });
-
-    setSelectedRecipe(null);
-
-    const fromAI = list.some((r) => r.fromAI);
-
-    // 🔥 FIX TOAST
-    toast.success(
-      fromAI ? "✨ Fresh recipes from AI" : "⚡ Loaded from database",
-      { id: "recipe-toast" }
-    );
-
-  } catch (err) {
-    setError(err.message || "Failed to generate recipes");
-
-    toast.error("Failed to generate recipes", {
-      id: "recipe-error"
-    });
-
-  } finally {
-    setLoading(false);
-  }
-}
 
   return (
     <>
       <div className="space-y-5">
+
         {/* HEADER */}
         <div className="rounded-3xl border border-slate-700 bg-slate-900 p-5">
           <h2 className="text-xl font-semibold text-white">Quick Recipes</h2>
@@ -140,7 +130,7 @@ async function handleGenerateRecipes() {
         {recipes.length > 0 && (
           <div className="space-y-4">
             {recipes.map((recipe, index) => {
-              // 🔥 FIX: dedupe ingredient
+
               const uniqueIngredients = [
                 ...new Set(recipe.ingredients || []),
               ];
@@ -161,6 +151,7 @@ async function handleGenerateRecipes() {
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     {uniqueIngredients.slice(0, 5).map((ing, i) => {
+
                       const expiring = isExpiringIngredient(
                         ing,
                         recipe.expiringIngredients
@@ -211,11 +202,13 @@ async function handleGenerateRecipes() {
           </div>
         )}
       </div>
-    {selectedRecipe &&
-      <RecipeModal
-        recipe={selectedRecipe}
-        onClose={() => setSelectedRecipe(null)}
-      />}
+
+      {selectedRecipe && (
+        <RecipeModal
+          recipe={selectedRecipe}
+          onClose={() => setSelectedRecipe(null)}
+        />
+      )}
     </>
   );
 }
