@@ -36,7 +36,6 @@ public class ItemService {
 
         LocalDate normalizedDate = expiryDateNormalizer.normalize(request.getExpiryDate());
 
-        // 🔴 Vì DB NOT NULL → phải validate tại đây
         if (normalizedDate == null) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,

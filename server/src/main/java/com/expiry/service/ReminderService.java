@@ -29,7 +29,6 @@ public class ReminderService {
         List<Item> expired = queryService.findExpiredItems();
         List<Item> soon = queryService.findExpiringSoonItems(reminderProperties.getWindowDays());
 
-        // dedupe theo itemId
         Map<Long, Map<Long, Item>> itemsByUser = new LinkedHashMap<>();
 
         add(itemsByUser, expired);

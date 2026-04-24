@@ -4,13 +4,12 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.Collections;
 
@@ -32,9 +31,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String authHeader = request.getHeader("Authorization");
 
-        // Không có token -> request public thì đi tiếp, request protected thì Spring Security tự chặn
+        // ===== NO TOKEN =====
         if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            log.debug("No Bearer token found for path: {}", request.getRequestURI());
             filterChain.doFilter(request, response);
             return;
         }
@@ -42,18 +40,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String token = authHeader.substring(7);
 
+            // ===== TOKEN INVALID / EXPIRED =====
             if (!jwtService.isTokenValid(token)) {
-                log.warn("Invalid JWT token for path: {}", request.getRequestURI());
-                filterChain.doFilter(request, response);
+                log.warn("Invalid or expired JWT for path: {}", request.getRequestURI());
+
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\": \"Token expired or invalid\"}");
+
                 return;
             }
 
             Long userId = jwtService.extractUserId(token);
 
-            // 1) Cho code hiện tại của mày dùng qua CurrentUserProvider
+            // set cho CurrentUserProvider
             request.setAttribute(CURRENT_USER_ATTR, userId);
 
-            // 2) Báo cho Spring Security biết request này đã authenticated
+            // set auth cho Spring Security
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
                             userId,
@@ -63,10 +66,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
 
-            log.debug("JWT authenticated successfully. userId={}, path={}", userId, request.getRequestURI());
-
         } catch (Exception e) {
-            log.error("JWT processing failed for path: {}. Reason: {}", request.getRequestURI(), e.getMessage());
+            log.error("JWT processing failed: {}", e.getMessage());
+
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\": \"Invalid token\"}");
+
+            return;
         }
 
         filterChain.doFilter(request, response);

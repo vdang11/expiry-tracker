@@ -47,7 +47,7 @@ public class NotificationService {
         repo.save(n);
     }
 
-    // ===== DELETE ONE (🔥 FIX CHUẨN) =====
+    // ===== DELETE ONE =====
     public void delete(Long id, Long userId) {
         Notification n = repo.findByIdAndUser_Id(id, userId)
                 .orElseThrow(() -> new ResponseStatusException(
