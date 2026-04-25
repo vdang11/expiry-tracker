@@ -147,9 +147,6 @@ export default function Dashboard() {
                 <div className="text-base font-medium">
                   You don’t have any items yet
                 </div>
-                <div className="text-sm mt-1">
-                  Start by adding your first item
-                </div>
               </>
             ) : (
               <>
