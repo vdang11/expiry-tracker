@@ -1,8 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sparkles, RefreshCcw, ChevronRight, Utensils } from "lucide-react";
 import toast from "react-hot-toast";
 import { api } from "../api/apiClient";
 import RecipeModal from "../components/RecipeModal";
+
+// ===== CONSTANT =====
+const MAX_SEEN = 50;
+const STORAGE_KEY = "seenRecipeIds";
 
 // ===== NORMALIZE =====
 function normalizeIngredient(value) {
@@ -12,11 +16,9 @@ function normalizeIngredient(value) {
 // ===== STRICT MATCH =====
 function isExpiringIngredient(ingredient, expiringIngredients = []) {
   const ing = normalizeIngredient(ingredient);
-
   const expSet = new Set(
     (expiringIngredients || []).map(normalizeIngredient)
   );
-
   return expSet.has(ing);
 }
 
@@ -26,11 +28,23 @@ export default function MenuSuggestions() {
   const [selectedRecipe, setSelectedRecipe] = useState(null);
   const [error, setError] = useState("");
   const [hasGenerated, setHasGenerated] = useState(false);
-  const [seenRecipeIds, setSeenRecipeIds] = useState([]);
 
-  // 🔥 FIX: REMOVE currentUser logic completely
-  // JWT đã được handle ở httpClient
+  // ===== LOAD FROM LOCALSTORAGE =====
+  const [seenRecipeIds, setSeenRecipeIds] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
 
+  // ===== SYNC LOCALSTORAGE =====
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(seenRecipeIds));
+  }, [seenRecipeIds]);
+
+  // ===== GENERATE =====
   async function handleGenerateRecipes() {
     if (loading) return;
 
@@ -43,19 +57,24 @@ export default function MenuSuggestions() {
       const list = Array.isArray(data) ? data : [];
 
       setRecipes(list);
+      setSelectedRecipe(null);
 
+      // ===== UPDATE SEEN IDS =====
       setSeenRecipeIds((prev) => {
         const newIds = list.map((r) => r.id).filter(Boolean);
-        const merged = [...new Set([...prev, ...newIds])];
-        return merged.slice(-9);
-      });
 
-      setSelectedRecipe(null);
+        const merged = [...prev, ...newIds];
+        const unique = Array.from(new Set(merged));
+
+        return unique.slice(-MAX_SEEN); // limit size
+      });
 
       const fromAI = list.some((r) => r.fromAI);
 
       toast.success(
-        fromAI ? "✨ Fresh recipes from AI" : "⚡ Loaded from database",
+        fromAI
+          ? "✨ Fresh recipes from AI"
+          : "⚡ Loaded from database",
         { id: "recipe-toast" }
       );
 
@@ -77,7 +96,10 @@ export default function MenuSuggestions() {
 
         {/* HEADER */}
         <div className="rounded-3xl border border-slate-700 bg-slate-900 p-5">
-          <h2 className="text-xl font-semibold text-white">Quick Recipes</h2>
+          <h2 className="text-xl font-semibold text-white">
+            Quick Recipes
+          </h2>
+
           <p className="mt-1 text-sm text-slate-400">
             Cook fast with what you already have
           </p>
@@ -95,7 +117,9 @@ export default function MenuSuggestions() {
             ) : (
               <>
                 <Sparkles size={16} />
-                {recipes.length ? "Generate Again" : "Generate Recipes"}
+                {recipes.length
+                  ? "Generate Again"
+                  : "Generate Recipes"}
               </>
             )}
           </button>
@@ -105,7 +129,7 @@ export default function MenuSuggestions() {
           )}
         </div>
 
-        {/* EMPTY */}
+        {/* EMPTY STATE */}
         {!loading && recipes.length === 0 && (
           <div className="py-10 text-center text-slate-400">
             <Utensils className="mx-auto mb-3" />
@@ -119,9 +143,13 @@ export default function MenuSuggestions() {
         {recipes.length > 0 && (
           <div>
             {recipes.some((r) => r.fromAI) ? (
-              <span className="text-xs text-purple-400">✨ Fresh AI</span>
+              <span className="text-xs text-purple-400">
+                ✨ Fresh AI
+              </span>
             ) : (
-              <span className="text-xs text-green-400">⚡ From database</span>
+              <span className="text-xs text-green-400">
+                ⚡ From database
+              </span>
             )}
           </div>
         )}
@@ -191,12 +219,12 @@ export default function MenuSuggestions() {
             <div className="mt-3 flex flex-wrap gap-3 text-xs text-slate-400">
               <div className="flex items-center gap-2">
                 <span className="inline-block h-3 w-3 rounded-full border border-yellow-400/40 bg-yellow-400/20" />
-                <span>Expiring soon / expired ingredient</span>
+                <span>Expiring ingredient</span>
               </div>
 
               <div className="flex items-center gap-2">
                 <span className="inline-block h-3 w-3 rounded-full border border-slate-700 bg-slate-800" />
-                <span>Other recipe ingredients</span>
+                <span>Other ingredients</span>
               </div>
             </div>
           </div>

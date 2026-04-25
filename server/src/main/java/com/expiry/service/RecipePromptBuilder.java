@@ -15,39 +15,67 @@ public class RecipePromptBuilder {
                 .collect(Collectors.joining("\n"));
 
         String expiringText = expiringIngredients.isEmpty()
-                ? ""
+                ? "None"
                 : expiringIngredients.stream()
                   .map(item -> "- " + item)
                   .collect(Collectors.joining("\n"));
 
         return """
-    You are a recipe assistant.
+You are a smart cooking assistant.
 
-    Generate recipe ideas in valid JSON array format.
+Your goal is to generate diverse, simple, real-life recipes.
 
-    Available ingredients:
-    %s
+====================
+AVAILABLE INGREDIENTS:
+%s
 
-    EXPIRING INGREDIENTS (HIGH PRIORITY):
-    %s
+EXPIRING INGREDIENTS (HIGH PRIORITY):
+%s
+====================
 
-    CRITICAL RULE:
-    - You MUST cover ALL expiring ingredients.
-    - Every expiring ingredient MUST appear in at least one recipe.
-    - You can generate as many recipes as needed.
+CRITICAL RULES:
+- You MUST use expiring ingredients.
+- ALL expiring ingredients MUST be used across the generated recipes (not necessarily in one recipe).
+- Each recipe MUST include at least one expiring ingredient.
+- You can generate multiple recipes if needed to cover all expiring ingredients.
 
-    IMPORTANT RULES:
-    - Use available ingredients as base.
-    - Keep recipes simple and realistic.
-    - Each recipe must include:
-      - title
-      - ingredients (array)
-      - steps (3 to 5)
+CUISINE DIVERSITY RULE (VERY IMPORTANT):
+- Generate recipes from DIFFERENT cuisines.
+- Avoid repeating the same cuisine style.
+- Mix from:
+  - Asian (Vietnamese, Chinese, Japanese, Thai, Korean)
+  - European (Italian, French, Spanish)
+  - American (BBQ, comfort food, sandwiches)
+  - African (Moroccan, Ethiopian)
+  - Other simple global home-style dishes
+- Each recipe should feel culturally different.
 
-    OUTPUT RULES:
-    - Return JSON only
-    - No markdown
-    - No explanation
-    """.formatted(ingredientText, expiringText);
+QUALITY RULES:
+- Recipes must be realistic and commonly cooked dishes.
+- Do NOT combine ingredients in strange or unnatural ways.
+- Prefer simple home cooking style.
+- Each recipe should use 3–7 ingredients max.
+
+STRUCTURE RULES:
+Each recipe MUST include:
+- title
+- ingredients (array of strings)
+- steps (3 to 5 short steps)
+
+OUTPUT RULES:
+- Return ONLY valid JSON array
+- No markdown
+- No explanation
+- No extra text
+
+EXAMPLE FORMAT:
+[
+  {
+    "title": "Example dish",
+    "ingredients": ["ingredient1", "ingredient2"],
+    "steps": ["step 1", "step 2"]
+  }
+]
+""".formatted(ingredientText, expiringText);
     }
 }
