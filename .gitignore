@@ -10,18 +10,18 @@ pnpm-debug.log*
 lerna-debug.log*
 
 # ===============================
-# Environment (SECRET ONLY)
+# ENV (SECRET - NEVER COMMIT)
 # ===============================
 .env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env.*
+server/.env
+client/.env
 
 # ===============================
-# KEEP THESE (IMPORTANT)
+# KEEP ENV TEMPLATE (SAFE)
 # ===============================
 !.env.example
+!server/.env.example
 !client/.env.production
 !client/.env.production.example
 
@@ -29,16 +29,34 @@ lerna-debug.log*
 # Node / Frontend
 # ===============================
 node_modules/
+client/node_modules/
 dist/
 dist-ssr/
 *.local
+.vite/
 
 # ===============================
 # Backend (Spring Boot)
 # ===============================
 server/target/
 server/*.log
+
+# local config only
 server/application-local.yml
+
+# ===============================
+# Java
+# ===============================
+*.class
+*.jar
+*.war
+*.ear
+
+# ===============================
+# Docker
+# ===============================
+docker-compose.override.yml
+*.pid
 
 # ===============================
 # IDE - IntelliJ
@@ -56,6 +74,14 @@ server/application-local.yml
 # OS
 # ===============================
 .DS_Store
+Thumbs.db
+
+# ===============================
+# SHELL / LOCAL CONFIG
+# ===============================
+.zshrc
+.bashrc
+.bash_profile
 
 # ===============================
 # Misc

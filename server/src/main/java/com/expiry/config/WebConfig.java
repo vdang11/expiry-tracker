@@ -15,8 +15,16 @@ public class WebConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
 
+                // ===== READ ENV =====
+                String allowedOrigins = System.getenv("CORS_ALLOWED_ORIGINS");
+
+                // ===== FALLBACK FOR DEV =====
+                if (allowedOrigins == null || allowedOrigins.isBlank()) {
+                    allowedOrigins = "http://localhost:5173";
+                }
+
                 registry.addMapping("/**")
-                        .allowedOriginPatterns("*") // dev OK
+                        .allowedOriginPatterns(allowedOrigins.split(","))
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")
                         .allowCredentials(false)

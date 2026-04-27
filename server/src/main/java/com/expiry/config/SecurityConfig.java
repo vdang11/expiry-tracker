@@ -30,20 +30,27 @@ public class SecurityConfig {
                 .cors(cors -> {})
 
                 .authorizeHttpRequests(auth -> auth
-                        // ===== PUBLIC =====
+
+                        // ===== HEALTH CHECK (CRITICAL) =====
+                        .requestMatchers(
+                                "/",                    
+                                "/actuator/health"
+                        ).permitAll()
+
+                        // ===== AUTH =====
                         .requestMatchers(
                                 "/api/users/signup",
                                 "/api/users/login"
                         ).permitAll()
 
-                        // nếu muốn scan public thì mở dòng dưới
+                        // nếu cần public scan thì mở
                         // .requestMatchers("/api/vision/scan").permitAll()
 
                         // ===== PROTECTED =====
                         .anyRequest().authenticated()
                 )
 
-                // ===== ADD JWT FILTER =====
+                // ===== JWT FILTER =====
                 .addFilterBefore(
                         jwtAuthenticationFilter,
                         UsernamePasswordAuthenticationFilter.class

@@ -31,6 +31,9 @@ class ReminderServiceTest {
     @Mock
     private ReminderProperties reminderProperties;
 
+    @Mock
+    private NotificationService notificationService;
+
     @InjectMocks
     private ReminderService reminderService;
 

@@ -1,9 +1,64 @@
 spring:
   datasource:
-    url: jdbc:mysql://mysql:3306/expiry_tracker?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
-    username: root
-    password: ${MYSQL_ROOT_PASSWORD}
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
+    hibernate:
+      ddl-auto: update
     show-sql: false
+
+  devtools:
+    restart:
+      enabled: false
+
+  # MAIL (optional - để trống nếu chưa dùng SES)
+  mail:
+    host: ${SES_SMTP_HOST:}
+    port: ${SES_SMTP_PORT:587}
+    username: ${SES_SMTP_USERNAME:}
+    password: ${SES_SMTP_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+            required: true
+          connectiontimeout: 10000
+          timeout: 10000
+          writetimeout: 10000
+
+jwt:
+  secret: ${JWT_SECRET}
+  expiration: 1800000
+
+openai:
+  api-key: ${OPENAI_API_KEY}
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:}
+
+reminder:
+  window-days: ${REMINDER_WINDOW_DAYS:3}
+  cron: ${REMINDER_CRON:0 0 8 * * *}
+  from-email: ${REMINDER_FROM_EMAIL:no-reply@yourdomain.com}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+
+  endpoint:
+    health:
+      show-details: always
+
+  health:
+    mail:
+      enabled: false
+
+server:
+  port: 8080

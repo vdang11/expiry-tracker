@@ -7,3 +7,35 @@ spring:
 
   jpa:
     show-sql: true
+    hibernate:
+      ddl-auto: update
+
+  mail:
+    host: localhost
+    port: 1025
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+jwt:
+  secret: dev-secret-key
+  expiration: 1800000
+
+openai:
+  api-key: ${OPENAI_API_KEY:}
+
+reminder:
+  window-days: 3
+  cron: 0 */2 * * * *   # mỗi 5 phút
+  from-email: no-reply@expiry.local
+
+management:
+  health:
+    mail:
+      enabled: false

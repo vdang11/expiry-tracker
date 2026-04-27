@@ -4,6 +4,7 @@ import com.expiry.config.ReminderProperties;
 import com.expiry.entity.Item;
 import com.expiry.entity.User;
 import com.expiry.repository.ItemRepository;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,7 @@ public class ReminderService {
     private final ReminderProperties reminderProperties;
     private final NotificationService notificationService;
 
+    @Transactional
     public int sendDailyReminders() {
 
         List<Item> expired = queryService.findExpiredItems();
