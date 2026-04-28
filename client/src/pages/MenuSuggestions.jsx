@@ -6,7 +6,12 @@ import RecipeModal from "../components/RecipeModal";
 
 // ===== CONSTANT =====
 const MAX_SEEN = 50;
-const STORAGE_KEY = "seenRecipeIds";
+
+// 🔥 FIX 1: tách key theo environment
+const STORAGE_KEY =
+  import.meta.env.MODE === "production"
+    ? "seenRecipeIds_prod"
+    : "seenRecipeIds_local";
 
 // ===== NORMALIZE =====
 function normalizeIngredient(value) {
@@ -20,6 +25,15 @@ function isExpiringIngredient(ingredient, expiringIngredients = []) {
     (expiringIngredients || []).map(normalizeIngredient)
   );
   return expSet.has(ing);
+}
+
+// 🔥 FIX 2: clean invalid IDs
+function cleanSeenIds(seenIds, recipes) {
+  if (!Array.isArray(seenIds) || !Array.isArray(recipes)) return [];
+
+  const validIds = new Set(recipes.map((r) => r.id).filter(Boolean));
+
+  return seenIds.filter((id) => validIds.has(id));
 }
 
 export default function MenuSuggestions() {
@@ -56,6 +70,14 @@ export default function MenuSuggestions() {
       const data = await api.generateRecipes(seenRecipeIds);
       const list = Array.isArray(data) ? data : [];
 
+      // 🔥 FIX PRO: clean invalid IDs (core fix)
+      const cleanedSeen = cleanSeenIds(seenRecipeIds, list);
+
+      if (cleanedSeen.length !== seenRecipeIds.length) {
+        console.log("⚠️ Clean invalid seenRecipeIds");
+        setSeenRecipeIds(cleanedSeen);
+      }
+
       setRecipes(list);
       setSelectedRecipe(null);
 
@@ -66,7 +88,7 @@ export default function MenuSuggestions() {
         const merged = [...prev, ...newIds];
         const unique = Array.from(new Set(merged));
 
-        return unique.slice(-MAX_SEEN); // limit size
+        return unique.slice(-MAX_SEEN);
       });
 
       const fromAI = list.some((r) => r.fromAI);

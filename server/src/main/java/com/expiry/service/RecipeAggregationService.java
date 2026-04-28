@@ -21,8 +21,6 @@ public class RecipeAggregationService {
     private final ItemRepository itemRepository;
     private final RecipeIngredientFilter recipeIngredientFilter;
 
-    // ================= PUBLIC API =================
-
     public List<String> getIngredientsForRecipe(Long userId) {
         return getAggregationResult(userId).getIngredients();
     }
@@ -54,16 +52,14 @@ public class RecipeAggregationService {
                 .limit(MAX_STABLE_ITEMS)
                 .toList();
 
-        // ===== MERGE (EXPIRING PRIORITY) =====
         List<String> all = mergeIngredients(expiring, stable);
 
         return new RecipeAggregationResult(userId, expiring, stable, all);
     }
 
-    // ================= BUSINESS HELPERS =================
-
     private boolean isExpiringSoon(LocalDate today, LocalDate expiryDate) {
-        return daysBetween(today, expiryDate) <= EXPIRING_DAYS_THRESHOLD;
+        long days = daysBetween(today, expiryDate);
+        return days >= 0 && days <= EXPIRING_DAYS_THRESHOLD;
     }
 
     private boolean isStable(LocalDate today, LocalDate expiryDate) {
@@ -74,8 +70,6 @@ public class RecipeAggregationService {
         return ChronoUnit.DAYS.between(today, date);
     }
 
-    // ================= DATA CLEANING =================
-
     private boolean isValidName(String name) {
         return name != null && !name.trim().isBlank();
     }
@@ -83,8 +77,6 @@ public class RecipeAggregationService {
     private String normalize(String text) {
         return text.trim().toLowerCase();
     }
-
-    // ================= MERGE LOGIC =================
 
     private List<String> mergeIngredients(List<String> expiring, List<String> stable) {
 

@@ -13,7 +13,16 @@ import java.util.List;
 @Table(
         name = "recipes",
         indexes = {
-                @Index(name = "idx_recipe_user_id", columnList = "user_id")
+                @Index(
+                        name = "idx_recipe_user_id",
+                        columnList = "user_id"
+                )
+        },
+        uniqueConstraints = {
+                @UniqueConstraint(
+                        name = "uk_recipe_title_user",
+                        columnNames = {"title", "user_id"}
+                )
         }
 )
 @Getter
@@ -40,6 +49,7 @@ public class Recipe {
     @Column(length = 5000)
     private String steps;
 
+    // ===== RELATION MAPPING =====
     @OneToMany(
             mappedBy = "recipe",
             cascade = CascadeType.ALL,
@@ -47,6 +57,8 @@ public class Recipe {
     )
     private List<RecipeIngredient> recipeIngredients = new ArrayList<>();
 
+    // ===== AUDIT =====
+    @Column(nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
     // ===== LIFECYCLE =====

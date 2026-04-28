@@ -1,380 +1,248 @@
 package com.expiry.service;
 
-import com.expiry.dto.RecipeAggregationResult;
-import com.expiry.dto.RecipeResponse;
-import com.expiry.entity.Ingredient;
-import com.expiry.entity.Recipe;
-import com.expiry.entity.RecipeIngredient;
-import com.expiry.entity.User;
+import com.expiry.dto.*;
+import com.expiry.entity.*;
 import com.expiry.infrastructure.ai.OpenAIClient;
-import com.expiry.repository.RecipeIngredientRepository;
-import com.expiry.repository.RecipeRepository;
-import com.expiry.repository.UserRepository;
+import com.expiry.repository.*;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class RecipeService {
 
-    private final RecipeAggregationService recipeAggregationService;
-    private final RecipePromptBuilder recipePromptBuilder;
+    private final RecipeAggregationService aggregationService;
+    private final RecipePromptBuilder promptBuilder;
     private final OpenAIClient openAIClient;
     private final ObjectMapper objectMapper;
     private final RecipeRepository recipeRepository;
-    private final RecipeIngredientRepository recipeIngredientRepository;
     private final UserRepository userRepository;
-    private final IngredientService ingredientService;
 
-    private static final int TARGET_RECIPES = 3;
-    private static final int MAX_RECIPES = 6;
+    private static final int MAX_AI_CALLS = 3;
+    private static final int MAX_RECIPES = 15;
 
-    public List<RecipeResponse> generateRecipes(Long userId, List<Long> excludeRecipeIds) {
+    public List<RecipeResponse> generateRecipes(Long userId, List<Long> excludeIds) {
 
-        if (excludeRecipeIds == null) {
-            excludeRecipeIds = List.of();
-        }
+        List<Long> excludedRecipeIds =
+                excludeIds == null ? List.of() : excludeIds;
 
-        RecipeAggregationResult aggregation =
-                recipeAggregationService.getAggregationResult(userId);
+        log.info("=== GENERATE START === userId={}, excludeIds={}", userId, excludedRecipeIds);
 
-        List<String> allIngredients = aggregation.getIngredients();
-        List<String> expiring = aggregation.getExpiringIngredients()
+        RecipeAggregationResult agg =
+                aggregationService.getAggregationResult(userId);
+
+        List<String> allIngredients = normalizeList(agg.getIngredients());
+        List<String> expiring = normalizeList(agg.getExpiringIngredients());
+
+        if (expiring.isEmpty()) return List.of();
+
+        Set<String> uncovered = new HashSet<>(expiring);
+        List<RecipeResponse> result = new ArrayList<>();
+
+        log.info("Expiring total = {}", uncovered.size());
+
+        // ================= DB FIRST =================
+        List<Recipe> dbRecipes = recipeRepository.findByUser_Id(userId)
                 .stream()
-                .map(this::normalize)
+                .filter(r -> !excludedRecipeIds.contains(r.getId())) // 🔥 FIX
                 .toList();
 
-        if (allIngredients == null || allIngredients.isEmpty()) {
-            return Collections.emptyList();
+        for (Recipe r : dbRecipes) {
+
+            List<String> ingredients = split(r.getIngredients());
+
+            Set<String> covered =
+                    findCoveredExpiring(ingredients, uncovered);
+
+            if (!covered.isEmpty()) {
+
+                result.add(map(r, false, new ArrayList<>(covered)));
+
+                uncovered.removeAll(covered);
+
+                log.info("DB recipe used: {} -> cover {}", r.getTitle(), covered);
+            }
+
+            if (uncovered.isEmpty()) break;
         }
 
-        List<RecipeResponse> result = new ArrayList<>();
-        Set<String> remaining = new HashSet<>(expiring);
+        log.info("After DB, uncovered = {}", uncovered);
 
-        if (expiring.isEmpty()) {
-            return generateAndSave(userId, aggregation);
-        }
+        // ================= AI FALLBACK =================
+        int aiCall = 0;
 
-        List<Recipe> candidates = recipeRepository.findReusableRecipes(
-                userId,
-                allIngredients,
-                excludeRecipeIds.isEmpty() ? null : excludeRecipeIds
-        );
+        while (!uncovered.isEmpty()
+                && aiCall < MAX_AI_CALLS
+                && result.size() < MAX_RECIPES) {
 
-        List<Recipe> ranked = rankReusableRecipes(candidates, expiring, allIngredients);
+            aiCall++;
 
-        if (ranked.isEmpty()) {
-            return generateAndSave(userId, aggregation);
-        }
+            log.info("AI call {} - remaining {}", aiCall, uncovered);
 
-        for (Recipe recipe : ranked) {
+            String prompt =
+                    promptBuilder.buildPrompt(allIngredients, new ArrayList<>(uncovered));
 
-            if (remaining.isEmpty()) break;
+            String raw = openAIClient.generateText(prompt);
 
-            List<String> recipeIngredients = splitByComma(recipe.getIngredients())
-                    .stream()
-                    .map(this::normalize)
-                    .toList();
+            List<RecipeResponse> parsed = parse(raw);
 
-            Set<String> matched = recipeIngredients.stream()
-                    .filter(remaining::contains)
-                    .collect(Collectors.toSet());
+            for (RecipeResponse r : parsed) {
 
-            if (matched.isEmpty()) continue;
+                Set<String> covered =
+                        findCoveredExpiring(r.getIngredients(), uncovered);
 
-            result.add(mapToResponse(recipe, false, expiring));
-            remaining.removeAll(matched);
-        }
+                if (covered.isEmpty()) continue;
 
-        boolean needAI =
-                result.size() < TARGET_RECIPES
-                        || remaining.size() >= 2;
+                Recipe saved = save(userId, r);
 
-        if (needAI) {
+                // không add lại recipe đã exclude
+                if (saved != null && !excludedRecipeIds.contains(saved.getId())) {
 
-            List<RecipeResponse> generated = generateAndSave(userId, aggregation);
+                    result.add(
+                            RecipeResponse.builder()
+                                    .id(saved.getId())
+                                    .title(saved.getTitle())
+                                    .ingredients(r.getIngredients())
+                                    .steps(r.getSteps())
+                                    .fromAI(true)
+                                    .expiringIngredients(new ArrayList<>(covered))
+                                    .build()
+                    );
 
-            List<RecipeResponse> rankedAI = generated.stream()
-                    .sorted((a, b) ->
-                            Integer.compare(
-                                    countMatchedExpiring(b, expiring),
-                                    countMatchedExpiring(a, expiring)
-                            )
-                    )
-                    .toList();
+                    uncovered.removeAll(covered);
 
-            for (RecipeResponse recipe : rankedAI) {
-
-                if (result.size() >= MAX_RECIPES) break;
-
-                List<String> ingredients = recipe.getIngredients()
-                        .stream()
-                        .map(this::normalize)
-                        .toList();
-
-                Set<String> matched = ingredients.stream()
-                        .filter(remaining::contains)
-                        .collect(Collectors.toSet());
-
-                boolean duplicate = result.stream()
-                        .anyMatch(existing ->
-                                isSameRecipe(existing.getTitle(), recipe.getTitle())
-                        );
-
-                if (!duplicate) {
-                    result.add(recipe);
-                    remaining.removeAll(matched);
+                    log.info("AI recipe used: {} -> cover {}", r.getTitle(), covered);
                 }
 
-                if (remaining.isEmpty() && result.size() >= TARGET_RECIPES) break;
+                if (uncovered.isEmpty()) break;
             }
         }
+
+        // ================= FINAL =================
+        if (!uncovered.isEmpty()) {
+            log.warn("Still not covered: {}", uncovered);
+        } else {
+            log.info("All expiring items covered");
+        }
+
+        log.info("=== DONE total_recipes={} ===", result.size());
 
         return result;
     }
 
-    private List<RecipeResponse> generateAndSave(
-            Long userId,
-            RecipeAggregationResult aggregation
-    ) {
+    // ================= HELPERS =================
 
-        List<String> normalizedExpiring = aggregation.getExpiringIngredients()
-                .stream()
-                .map(this::normalize)
-                .toList();
+    private Set<String> findCoveredExpiring(List<String> ingredients, Set<String> expiring) {
 
-        String prompt = recipePromptBuilder.buildPrompt(
-                aggregation.getIngredients(),
-                aggregation.getExpiringIngredients()
-        );
+        Set<String> covered = new HashSet<>();
 
-        String rawText = openAIClient.generateText(prompt);
-
-        List<RecipeResponse> responses = parseResponse(rawText);
-
-        List<RecipeResponse> valid = responses.stream()
-                .filter(recipe -> hasExpiringIngredient(recipe, normalizedExpiring))
-                .toList();
-
-        if (valid.isEmpty()) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "AI returned no valid recipes"
-            );
-        }
-
-        List<RecipeResponse> saved = new ArrayList<>();
-
-        for (RecipeResponse recipeResponse : valid) {
-            Recipe savedRecipe = saveRecipeWithIngredients(userId, recipeResponse);
-            saved.add(mapToResponse(savedRecipe, true, normalizedExpiring));
-        }
-
-        return saved;
-    }
-
-    private Recipe saveRecipeWithIngredients(
-            Long userId,
-            RecipeResponse response
-    ) {
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "User not found"
-                        )
-                );
-
-        Recipe recipe = new Recipe();
-        recipe.setUser(user);
-        recipe.setTitle(safeText(response.getTitle()));
-        recipe.setIngredients(joinSafe(response.getIngredients(), ", "));
-        recipe.setSteps(joinSafe(response.getSteps(), "\n"));
-
-        Recipe saved = recipeRepository.save(recipe);
-
-        List<String> normalizedIngredients = normalizeAndFilterIngredients(
-                response.getIngredients()
-        );
-
-        for (String name : normalizedIngredients) {
-            Ingredient ingredient = ingredientService.findOrCreate(name);
-
-            boolean exists = recipeIngredientRepository
-                    .existsByRecipe_IdAndIngredient_Id(
-                            saved.getId(),
-                            ingredient.getId()
-                    );
-
-            if (!exists) {
-                RecipeIngredient mapping = new RecipeIngredient();
-                mapping.setRecipe(saved);
-                mapping.setIngredient(ingredient);
-                recipeIngredientRepository.save(mapping);
+        for (String e : expiring) {
+            for (String i : ingredients) {
+                if (isMatch(i, e)) {
+                    covered.add(e);
+                    break;
+                }
             }
         }
 
-        return saved;
+        return covered;
     }
 
-    private List<RecipeResponse> parseResponse(String rawText) {
+    private boolean isMatch(String a, String b) {
+
+        String x = normalize(a);
+        String y = normalize(b);
+
+        if (x.equals(y)) return true;
+        if (x.contains(y) || y.contains(x)) return true;
+
+        Set<String> s1 = new HashSet<>(Arrays.asList(x.split(" ")));
+        Set<String> s2 = new HashSet<>(Arrays.asList(y.split(" ")));
+
+        s1.retainAll(s2);
+
+        return !s1.isEmpty();
+    }
+
+    private Recipe save(Long userId, RecipeResponse r) {
+
+        User user = userRepository.findById(userId).orElseThrow();
+
+        Recipe recipe = new Recipe();
+        recipe.setUser(user);
+        recipe.setTitle(r.getTitle());
+        recipe.setIngredients(String.join(", ", r.getIngredients()));
+        recipe.setSteps(String.join("\n", r.getSteps()));
+
         try {
-            String cleaned = rawText
-                    .replace("```json", "")
-                    .replace("```", "")
-                    .trim();
+            return recipeRepository.save(recipe);
+        } catch (DataIntegrityViolationException e) {
+            log.warn("Duplicate recipe skipped: {}", r.getTitle());
+            return null;
+        }
+    }
+
+    private RecipeResponse map(Recipe r, boolean fromAI, List<String> expiring) {
+
+        return RecipeResponse.builder()
+                .id(r.getId())
+                .title(r.getTitle())
+                .ingredients(split(r.getIngredients()))
+                .steps(splitLines(r.getSteps()))
+                .fromAI(fromAI)
+                .expiringIngredients(expiring)
+                .build();
+    }
+
+    private List<String> split(String text) {
+        if (text == null) return List.of();
+
+        return Arrays.stream(text.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .toList();
+    }
+
+    private List<String> splitLines(String text) {
+        if (text == null) return List.of();
+
+        return Arrays.stream(text.split("\\n"))
+                .map(String::trim)
+                .filter(s -> !s.isBlank())
+                .toList();
+    }
+
+    private List<RecipeResponse> parse(String raw) {
+        try {
+            String cleaned = raw.replace("```json", "").replace("```", "").trim();
 
             return objectMapper.readValue(
                     cleaned,
                     new TypeReference<List<RecipeResponse>>() {}
             );
-
         } catch (Exception e) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Invalid AI response format"
-            );
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "AI parse error");
         }
     }
 
-    private RecipeResponse mapToResponse(
-            Recipe recipe,
-            boolean fromAI,
-            List<String> globalExpiring
-    ) {
+    private List<String> normalizeList(List<String> list) {
+        if (list == null) return List.of();
 
-        List<String> recipeIngredients = splitByComma(recipe.getIngredients())
-                .stream()
+        return list.stream()
                 .map(this::normalize)
                 .toList();
-
-        List<String> matchedExpiring = globalExpiring.stream()
-                .filter(recipeIngredients::contains)
-                .toList();
-
-        return RecipeResponse.builder()
-                .id(recipe.getId())
-                .title(recipe.getTitle())
-                .ingredients(splitByComma(recipe.getIngredients()))
-                .steps(splitByNewline(recipe.getSteps()))
-                .fromAI(fromAI)
-                .expiringIngredients(matchedExpiring)
-                .build();
     }
 
-    private List<Recipe> rankReusableRecipes(
-            List<Recipe> candidates,
-            List<String> expiring,
-            List<String> all
-    ) {
-
-        return candidates.stream()
-                .sorted((a, b) -> Integer.compare(
-                        calculateScore(b, expiring, all),
-                        calculateScore(a, expiring, all)
-                ))
-                .toList();
-    }
-
-    private int calculateScore(
-            Recipe recipe,
-            List<String> expiring,
-            List<String> all
-    ) {
-
-        List<String> ingredients = splitByComma(recipe.getIngredients());
-
-        int score = 0;
-
-        for (String ingredient : ingredients) {
-            String normalized = normalize(ingredient);
-
-            if (expiring.contains(normalized)) {
-                score += 5;
-            } else if (all.contains(normalized)) {
-                score += 2;
-            }
-        }
-
-        return score;
-    }
-
-    private int countMatchedExpiring(
-            RecipeResponse recipe,
-            List<String> expiring
-    ) {
-
-        Set<String> expiringSet = new HashSet<>(expiring);
-
-        return (int) recipe.getIngredients()
-                .stream()
-                .map(this::normalize)
-                .filter(expiringSet::contains)
-                .count();
-    }
-
-    private boolean hasExpiringIngredient(
-            RecipeResponse recipe,
-            List<String> expiring
-    ) {
-
-        if (expiring == null || expiring.isEmpty()) {
-            return true;
-        }
-
-        return countMatchedExpiring(recipe, expiring) > 0;
-    }
-
-    private List<String> splitByComma(String text) {
-        if (text == null || text.isBlank()) return List.of();
-
-        return Arrays.stream(text.split(","))
-                .map(String::trim)
-                .filter(value -> !value.isBlank())
-                .toList();
-    }
-
-    private List<String> splitByNewline(String text) {
-        if (text == null || text.isBlank()) return List.of();
-
-        return Arrays.stream(text.split("\\n"))
-                .map(String::trim)
-                .filter(value -> !value.isBlank())
-                .toList();
-    }
-
-    private List<String> normalizeAndFilterIngredients(List<String> raw) {
-        if (raw == null || raw.isEmpty()) return List.of();
-
-        return raw.stream()
-                .map(this::normalize)
-                .filter(value -> !value.isBlank())
-                .distinct()
-                .toList();
-    }
-
-    private String joinSafe(List<String> list, String delimiter) {
-        if (list == null || list.isEmpty()) return "";
-        return String.join(delimiter, list);
-    }
-
-    private String safeText(String text) {
-        return text == null ? "" : text.trim();
-    }
-
-    private String normalize(String text) {
-        return text == null ? "" : text.trim().toLowerCase();
-    }
-
-    private boolean isSameRecipe(String a, String b) {
-        return normalize(a).equals(normalize(b));
+    private String normalize(String s) {
+        return s == null ? "" : s.trim().toLowerCase();
     }
 }
