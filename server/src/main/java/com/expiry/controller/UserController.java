@@ -16,9 +16,6 @@ public class UserController {
 
     private final UserService userService;
 
-    // =========================
-    // SIGNUP
-    // =========================
     @PostMapping("/signup")
     public UserResponse signup(@RequestBody SignupRequest request) {
 
@@ -36,17 +33,12 @@ public class UserController {
         );
     }
 
-    // =========================
-    // LOGIN
-    // =========================
     @PostMapping("/login")
     public LoginResponse login(@RequestBody LoginRequest request) {
 
-        String token = userService.login(
+        return userService.login(
                 request.getEmail(),
                 request.getPassword()
         );
-
-        return new LoginResponse(token);
     }
 }

@@ -1,5 +1,6 @@
 package com.expiry.service;
 
+import com.expiry.dto.LoginResponse;
 import com.expiry.entity.User;
 import com.expiry.repository.UserRepository;
 import com.expiry.security.JwtService;
@@ -29,7 +30,6 @@ public class UserService {
             throw new IllegalArgumentException("Email already exists");
         }
 
-        // HASH PASSWORD
         String hashedPassword = passwordEncoder.encode(rawPassword);
 
         User user = new User();
@@ -40,19 +40,24 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    public String login(String email, String rawPassword) {
+    public LoginResponse login(String email, String rawPassword) {
 
         User user = userRepository.findByEmail(email.trim())
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        // SO PASSWORD
         boolean isMatch = passwordEncoder.matches(rawPassword, user.getPassword());
 
         if (!isMatch) {
             throw new IllegalArgumentException("Invalid password");
         }
 
-        // TRẢ JWT
-        return jwtService.generateToken(user.getId(), user.getEmail());
+        String token = jwtService.generateToken(user.getId(), user.getEmail());
+
+        return LoginResponse.builder()
+                .token(token)
+                .userId(user.getId())
+                .email(user.getEmail())
+                .name(user.getName())
+                .build();
     }
 }

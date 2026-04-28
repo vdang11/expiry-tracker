@@ -7,6 +7,7 @@ export default function SignUp() {
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
+    name: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -30,7 +31,7 @@ export default function SignUp() {
 
     setError("");
 
-    if (!form.email || !form.password || !form.confirmPassword) {
+    if (!form.name || !form.email || !form.password || !form.confirmPassword) {
       setError("Please fill in all fields.");
       return;
     }
@@ -45,7 +46,7 @@ export default function SignUp() {
 
       await api.signup({
         email: form.email,
-        name: form.email,
+        name: form.name,
         password: form.password,
       });
 
@@ -64,6 +65,16 @@ export default function SignUp() {
       subtitle="Track and manage your food items effortlessly."
     >
       <form onSubmit={handleSubmit} className="space-y-4">
+
+        {/* 👉 NEW FIELD */}
+        <input
+          name="name"
+          placeholder="Your name"
+          value={form.name}
+          onChange={handleChange}
+          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+        />
+
         <input
           name="email"
           type="email"
@@ -104,10 +115,7 @@ export default function SignUp() {
 
       <div className="pt-3 text-center text-sm text-muted">
         Already have an account?{" "}
-        <Link
-          to="/login"
-          className="font-medium text-amber-400 hover:text-amber-300"
-        >
+        <Link to="/login" className="font-medium text-amber-400 hover:text-amber-300">
           Login
         </Link>
       </div>

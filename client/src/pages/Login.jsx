@@ -38,16 +38,18 @@ export default function Login() {
     try {
       setLoading(true);
 
-      //API trả về data chứa token
       const data = await api.login({
         email: form.email,
         password: form.password,
       });
 
-      // SAVE TOKEN
-      saveToken(data.token);
+      // 🔥 FIX
+      saveToken(data.token, {
+        id: data.userId,
+        email: data.email,
+        name: data.name,
+      });
 
-      //redirect
       navigate("/");
     } catch (err) {
       console.error(err);
@@ -58,10 +60,7 @@ export default function Login() {
   }
 
   return (
-    <AuthLayout
-      title="Welcome back"
-      subtitle="Log in to manage your food items."
-    >
+    <AuthLayout title="Welcome back" subtitle="Log in to manage your food items.">
       <form onSubmit={handleLogin} className="space-y-4">
         <input
           name="email"
@@ -93,10 +92,7 @@ export default function Login() {
 
       <div className="pt-3 text-center text-sm text-muted">
         Don&apos;t have an account?{" "}
-        <Link
-          to="/signup"
-          className="font-medium text-amber-400 hover:text-amber-300"
-        >
+        <Link to="/signup" className="font-medium text-amber-400 hover:text-amber-300">
           Sign Up
         </Link>
       </div>

@@ -1,52 +1,51 @@
 const AUTH_CHANGED_EVENT = "authChanged";
 
+const TOKEN_KEY = "token";
+const USER_KEY = "currentUser";
+
+// ===== EVENT =====
 function dispatchAuthChanged() {
   window.dispatchEvent(new Event(AUTH_CHANGED_EVENT));
 }
 
 // ===== TOKEN =====
 export function getToken() {
-  return localStorage.getItem("token");
+  return localStorage.getItem(TOKEN_KEY);
 }
 
-export function saveToken(token) {
-  localStorage.setItem("token", token);
+// 🔥 FIX: save BOTH token + user
+export function saveToken(token, user) {
+  localStorage.setItem(TOKEN_KEY, token);
+
+  if (user) {
+    localStorage.setItem(USER_KEY, JSON.stringify(user));
+  }
+
   dispatchAuthChanged();
 }
 
+// ===== CLEAR =====
 export function clearAuth() {
-  localStorage.removeItem("token");
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
   dispatchAuthChanged();
 }
 
-// ===== DECODE JWT =====
-function parseJwt(token) {
+// ===== USER =====
+export function getCurrentUser() {
   try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload;
+    return JSON.parse(localStorage.getItem(USER_KEY));
   } catch {
     return null;
   }
 }
 
-// ===== USER INFO =====
-export function getCurrentUser() {
-  const token = getToken();
-  if (!token) return null;
-
-  const payload = parseJwt(token);
-  if (!payload) return null;
-
-  return {
-    id: payload.sub,
-    email: payload.email,
-  };
-}
-
+// ===== AUTH STATE =====
 export function isLoggedIn() {
   return Boolean(getToken());
 }
 
+// ===== SUBSCRIBE =====
 export function subscribeAuthChange(callback) {
   window.addEventListener(AUTH_CHANGED_EVENT, callback);
   return () => window.removeEventListener(AUTH_CHANGED_EVENT, callback);

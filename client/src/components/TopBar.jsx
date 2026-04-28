@@ -27,22 +27,14 @@ export default function TopBar({ search = "", onSearchChange = () => {} }) {
     setInput(search || "");
   }, [search]);
 
-  const initial = currentUser?.email
-    ? currentUser.email.charAt(0).toUpperCase()
+  // ===== INITIAL (FROM NAME) =====
+  const initial = currentUser?.name
+    ? currentUser.name.charAt(0).toUpperCase()
     : "?";
 
-  const displayEmail = useMemo(() => {
-    if (!currentUser?.email) return "Guest";
-
-    const [name, domain] = currentUser.email.split("@");
-
-    if (!name || !domain) return currentUser.email;
-
-    if (name.length <= 2) {
-      return `${name[0]}*****@${domain}`;
-    }
-
-    return `${name.slice(0, 2)}*****@${domain}`;
+  // ===== DISPLAY NAME (FULL NAME, NO MASK) =====
+  const displayName = useMemo(() => {
+    return currentUser?.name || "Guest";
   }, [currentUser]);
 
   const handleLogout = () => {
@@ -61,6 +53,7 @@ export default function TopBar({ search = "", onSearchChange = () => {} }) {
 
   return (
     <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-3 px-4 py-3">
+      {/* LOGO */}
       <button
         onClick={() => navigate("/")}
         className="order-1 flex shrink-0 items-center gap-2"
@@ -71,19 +64,23 @@ export default function TopBar({ search = "", onSearchChange = () => {} }) {
         </span>
       </button>
 
+      {/* USER INFO */}
       <div className="order-2 ml-auto flex shrink-0 items-center gap-2 sm:order-3">
+        {/* AVATAR */}
         <span className="flex size-7 items-center justify-center rounded-full bg-slate-700 text-xs font-medium">
           {initial}
         </span>
 
+        {/* NAME + HOVER EMAIL */}
         <div className="group relative hidden text-xs opacity-80 sm:block">
-          {displayEmail}
-
+          Hello {displayName}
+          {/* HOVER → EMAIL */}
           <span className="absolute left-1/2 top-full z-50 mt-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-xs text-white shadow-md group-hover:block">
             {currentUser?.email}
           </span>
         </div>
 
+        {/* LOGOUT */}
         <button
           aria-label="Logout"
           onClick={handleLogout}
@@ -93,6 +90,7 @@ export default function TopBar({ search = "", onSearchChange = () => {} }) {
         </button>
       </div>
 
+      {/* SEARCH */}
       {showSearch && (
         <input
           value={input}
