@@ -22,8 +22,8 @@ public class WebConfig {
                                 "http://localhost:4173",
                                 "http://127.0.0.1:4173",
 
-                                // ===== S3 FRONTEND (PROD) =====
-                                "http://expiry-tracker-frontend-vinhdang.s3-website-ap-southeast-1.amazonaws.com"
+                                // ===== PROD (CloudFront HTTPS) =====
+                                "https://d3rhx0vrni0urs.cloudfront.net"
                         )
                         .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                         .allowedHeaders("*")

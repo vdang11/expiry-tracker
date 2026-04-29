@@ -1,29 +1,44 @@
 # 🚀 Expiry Tracker
 
-AI-powered food expiry management system that helps users track expiring items and generate recipes using AI.
+AI-powered food expiry management system that helps users track expiring items and generate recipes intelligently.
 
 ---
 
 # 🧠 Overview
 
-Expiry Tracker is a full-stack application that combines:
+Expiry Tracker is a full-stack application that combines **AI, backend engineering, and cloud deployment** to reduce food waste and improve inventory management.
 
-* 📸 AI Vision (scan expiry date from images)
-* 🗓 Expiry tracking & decision engine
-* 🍳 Recipe recommendation (AI + DB hybrid)
-* ⏰ Automated reminder system (cron job)
-* 📧 Email testing via MailHog
-* 🔐 JWT-based authentication (stateless)
+Key capabilities:
+
+* 📸 Scan expiry dates from product images (AI Vision)
+* 🧠 Evaluate data reliability using a decision engine
+* 📦 Manage food inventory with expiry tracking
+* 🍳 Generate recipes based on expiring ingredients
+* ⏰ Automated expiry reminders
+* 🔐 Secure authentication using JWT
 
 ---
 
 # 🏗 Architecture
 
+```text
+User (HTTPS)
+   ↓
+CloudFront (Frontend - S3)
+   ↓
+CloudFront (Backend - HTTPS Proxy)
+   ↓
+Elastic Beanstalk (Spring Boot API)
+   ↓
+RDS (MySQL)
 ```
+
+Monorepo structure:
+
+```text
 client/   → React + Vite + Tailwind
 server/   → Spring Boot (API + AI logic)
-.env      → Environment variables
-docker-compose.* → Dev / Prod environments
+docker/   → Dev environments
 ```
 
 ---
@@ -32,61 +47,180 @@ docker-compose.* → Dev / Prod environments
 
 ## 📸 AI Expiry Scanning
 
-* Upload images (1–2)
-* Extract expiry date via OpenAI Vision
-* Handles blurry / missing data
-* Returns confidence + decision status
+* Upload 1–2 product images
+* Extract expiry date using OpenAI Vision
+* Handles blurry or missing data
+* Returns structured result with confidence
+
+---
 
 ## 🧠 Decision Engine
 
-* CONFIRMED / REVIEW / REJECTED
-* Validates date format & plausibility
+* Status: `CONFIRMED / REVIEW / REJECTED`
+* Validates:
+
+  * Date format
+  * Logical correctness (past/future)
+  * Confidence thresholds
+
+---
 
 ## 📦 Item Management
 
 * Add / delete / consume items
-* Expiry states: Fresh / Expiring / Expired
+* Expiry states:
+
+  * Fresh
+  * Expiring Soon
+  * Expired
 * Server-side filtering, sorting, pagination
 
-## 🍳 Recipe Recommendation
+---
+
+## 🍳 Recipe Recommendation (AI + DB Hybrid)
 
 * Uses expiring ingredients (≤ 3 days)
-* DB-first → AI fallback
+* Strategy:
+
+  * Database-first reuse
+  * AI fallback generation
 * Filters non-cookable items
+
+---
 
 ## ⏰ Reminder System
 
-* Daily cron job
-* Sends notifications
+* Daily scheduled job (cron)
+* Uses MailHog in development (configured in backend)
+
+---
 
 ## 🔐 Authentication
 
 * JWT-based (stateless)
-* Token stored in frontend
-* Sent via Authorization header
+* Token sent via Authorization header
 
 ---
 
 # 🛠 Tech Stack
 
-Frontend:
+### Frontend
 
-* React + Vite + Tailwind
+* React
+* Vite
+* Tailwind CSS
 
-Backend:
+### Backend
 
-* Spring Boot + JPA + MySQL
+* Spring Boot
 * Spring Security (JWT)
+* JPA / Hibernate
+* MySQL
 
-Tools:
+### AI
 
-* IntelliJ IDEA
-* Docker
-* MailHog
+* OpenAI Vision API
+
+### DevOps / Infrastructure
+
+* Docker (development)
+* MailHog (email testing)
+
+### AWS
+
+* S3 (frontend hosting)
+* CloudFront (CDN + HTTPS)
+* Elastic Beanstalk (backend)
+* RDS (MySQL)
 
 ---
 
-# 🚀 Getting Started (Local - Recommended)
+# 🌐 Deployment (AWS)
+
+### Frontend
+
+* Hosted on **AWS S3**
+* Delivered via **CloudFront (HTTPS)**
+
+### Backend
+
+* Deployed on **Elastic Beanstalk**
+* Accessed via **CloudFront (HTTPS proxy)**
+
+### Benefits
+
+* HTTPS enabled for all user traffic
+* No mixed content issues
+* Production-style architecture
+
+---
+
+# 🔐 Environment Setup
+
+Create environment files in the **root folder**.
+
+---
+
+## ⚙️ `.env.dev` (Local Development)
+
+```env
+SPRING_PROFILES_ACTIVE=dev
+
+# DATABASE (Docker MySQL)
+SPRING_DATASOURCE_URL=
+SPRING_DATASOURCE_USERNAME=
+SPRING_DATASOURCE_PASSWORD=
+MYSQL_ROOT_PASSWORD=
+
+# AI
+OPENAI_API_KEY=
+
+# SECURITY
+JWT_SECRET=
+```
+
+👉 Used for:
+
+* Local development
+* Docker MySQL
+* Fast testing & debugging
+
+---
+
+## ⚙️ `.env.prod` (Production Simulation - Local Only)
+
+```env
+SPRING_PROFILES_ACTIVE=prod
+
+# AWS RDS
+SPRING_DATASOURCE_URL=
+SPRING_DATASOURCE_USERNAME=
+SPRING_DATASOURCE_PASSWORD=
+
+# AI
+OPENAI_API_KEY=
+
+# SECURITY
+JWT_SECRET=
+```
+
+👉 Used for:
+
+* Connecting to AWS RDS from local machine
+* Testing production configuration
+* Allowing Hibernate to create/update schema
+
+---
+
+## ❗ Important Notes
+
+* `.env.prod` is **NOT used in AWS deployment**
+* AWS uses **Environment Variables (Elastic Beanstalk)**
+* Do NOT commit `.env` files
+
+---
+
+# 🚀 Getting Started (Local Development)
 
 ## 1. Clone project
 
@@ -97,17 +231,13 @@ cd expiry-tracker
 
 ---
 
-## 2. Create `.env`
+## 2. Create `.env.dev`
 
-```env
-JWT_SECRET=your-secret-key
-OPENAI_API_KEY=your-openai-key
-MYSQL_ROOT_PASSWORD=root
-```
+Copy from README and fill values
 
 ---
 
-## 3. Run Database (Docker only)
+## 3. Start database
 
 ```bash
 docker compose -f docker-compose.dev.yml up mysql
@@ -115,17 +245,15 @@ docker compose -f docker-compose.dev.yml up mysql
 
 ---
 
-## 4. Run Backend (IntelliJ)
+## 4. Run backend
 
-* Install plugin: **EnvFile**
-* Enable EnvFile in Run Configuration
-* Add `.env`
-
-Run Spring Boot
+* Use IntelliJ + EnvFile plugin
+* Load `.env.dev`
+* Run Spring Boot
 
 ---
 
-## 5. Run Frontend
+## 5. Run frontend
 
 ```bash
 cd client
@@ -137,157 +265,68 @@ npm run dev
 
 ## 6. Access
 
-* Frontend: http://localhost:5173
-* Backend: http://localhost:8080
-* MailHog: http://localhost:8025
+| Service  | URL                   |
+| -------- | --------------------- |
+| Frontend | http://localhost:5173 |
+| Backend  | http://localhost:8080 |
+| MailHog  | http://localhost:8025 |
 
 ---
 
-# 📱 Mobile Testing
+# 🔄 Optional: Test Production Config Locally
 
-To test on mobile devices:
-
-1. Make sure phone and laptop are on the same WiFi network
-2. Use your laptop’s LAN IP (NOT localhost)
-
-Example:
-
-```
-http://192.168.x.x:8080
+```bash
+SPRING_PROFILES_ACTIVE=prod mvn spring-boot:run
 ```
 
-> Note:
->
-> * `localhost` only works on the same device
-> * Works for both local and Docker setups (if ports are exposed)
+👉 Uses `.env.prod`
+👉 Connects to AWS RDS
 
 ---
 
-# 🐳 Docker Setup
-
----
-
-## 📦 Dev Mode
-
-Used for development (hot reload, debugging)
+# 🐳 Docker
 
 ```bash
 docker compose -f docker-compose.dev.yml up
 ```
 
-Run in background:
-
-```bash
-docker compose -f docker-compose.dev.yml up -d
-```
-
-Stop:
-
-```bash
-docker compose -f docker-compose.dev.yml down
-```
-
-Reset database:
-
-```bash
-docker compose -f docker-compose.dev.yml down -v
-```
-
-> Use `--build` only when dependencies or Dockerfile change
-
----
-
-## 🏭 Prod Mode
-
-Used for production simulation
-
-```bash
-docker compose -f docker-compose.prod.yml up --build
-```
-
-Run in background:
-
-```bash
-docker compose -f docker-compose.prod.yml up -d --build
-```
-
-Stop:
-
-```bash
-docker compose -f docker-compose.prod.yml down
-```
-
----
-
-# 🌐 Services
-
-| Service  | URL                   |
-| -------- | --------------------- |
-| Backend  | http://localhost:8080 |
-| Frontend | http://localhost:5173 |
-| MailHog  | http://localhost:8025 |
-
----
-
-# 🧠 Dev Workflow (Recommended)
-
-```
-Frontend + Backend → run locally
-Database → Docker
-```
-
-✔ Faster development
-✔ Easier debugging
-✔ Avoids Docker networking issues
-
 ---
 
 # 🔐 Security
 
-JWT Flow:
+JWT flow:
 
-```
+```text
 Login → JWT
       ↓
 Request → JwtAuthenticationFilter
       ↓
 SecurityContext
       ↓
-Controller → Service → DB
+Controller → Service → Database
 ```
 
 ---
 
 # ⚠️ Troubleshooting
 
-## ❌ Missing frontend dependency
-
-```bash
-cd client
-npm install
-```
-
----
-
-## ❌ Mobile cannot connect
+## Mobile cannot connect
 
 Use LAN IP instead of localhost
 
 ---
 
-## ❌ Docker ECONNREFUSED
+## Docker networking issue
 
-Cause:
+Use service name instead of localhost:
 
-* Frontend calling `localhost` inside container
-
-Fix:
-
-* Use `backend:8080` (service name)
+```text
+backend:8080
+```
 
 ---
 
-## ❌ Backend not starting
+## Backend logs
 
 ```bash
 docker logs expiry-backend
@@ -300,18 +339,20 @@ docker logs expiry-backend
 ✔ AI Vision
 ✔ Decision Engine
 ✔ Item Management
-✔ Reminder System
-✔ Recipe AI
-✔ JWT Authentication
+✔ Recipe AI (DB + AI hybrid)
+✔ Reminder system (MailHog)
+✔ JWT authentication
+✔ AWS deployment (S3 + CloudFront + EB + RDS)
 
 ---
 
 # 📈 Future Improvements
 
 * Role-based authorization (ADMIN / USER)
-* AWS deployment (S3 + RDS + SES)
+* AWS SES for production email
 * CI/CD pipeline
 * Rate limiting
+* Custom domain
 
 ---
 
@@ -319,7 +360,7 @@ docker logs expiry-backend
 
 Full-stack project demonstrating:
 
-* Backend architecture
+* Backend architecture & scalability
 * AI integration
-* JWT authentication
-* Real-world system design
+* AWS deployment
+* Production-style system design
