@@ -18,5 +18,11 @@ public class RecipeResponse {
     private List<String> ingredients;
     private List<String> steps;
     private boolean fromAI;
+
+    // Expiring items that backend confirmed this recipe covers
     private List<String> expiringIngredients;
+
+    // Actual recipe ingredient names that matched expiring items
+    // FE should use this field for highlighting
+    private List<String> coveredIngredients;
 }

@@ -27,7 +27,7 @@ public class RecipeService {
     private final RecipeRepository recipeRepository;
     private final UserRepository userRepository;
 
-    private static final int MAX_AI_CALLS = 3;
+    private static final int MAX_AI_CALLS = 5;
     private static final int MAX_RECIPES = 15;
 
     public List<RecipeResponse> generateRecipes(Long userId, List<Long> excludeIds) {
@@ -49,27 +49,34 @@ public class RecipeService {
         List<RecipeResponse> result = new ArrayList<>();
 
         log.info("Expiring total = {}", uncovered.size());
+        log.info("Expiring list = {}", uncovered);
 
         // ================= DB FIRST =================
         List<Recipe> dbRecipes = recipeRepository.findByUser_Id(userId)
                 .stream()
-                .filter(r -> !excludedRecipeIds.contains(r.getId())) // 🔥 FIX
+                .filter(r -> !excludedRecipeIds.contains(r.getId()))
                 .toList();
 
         for (Recipe r : dbRecipes) {
 
             List<String> ingredients = split(r.getIngredients());
 
-            Set<String> covered =
+            MatchResult matchResult =
                     findCoveredExpiring(ingredients, uncovered);
 
-            if (!covered.isEmpty()) {
+            if (!matchResult.expiringIngredients().isEmpty()) {
 
-                result.add(map(r, false, new ArrayList<>(covered)));
+                result.add(map(
+                        r,
+                        false,
+                        new ArrayList<>(matchResult.expiringIngredients()),
+                        new ArrayList<>(matchResult.coveredIngredients())
+                ));
 
-                uncovered.removeAll(covered);
+                uncovered.removeAll(matchResult.expiringIngredients());
 
-                log.info("DB recipe used: {} -> cover {}", r.getTitle(), covered);
+                log.info("DB recipe used: {} -> cover {}", r.getTitle(), matchResult.expiringIngredients());
+                log.info("Uncovered after DB step = {}", uncovered);
             }
 
             if (uncovered.isEmpty()) break;
@@ -97,14 +104,13 @@ public class RecipeService {
 
             for (RecipeResponse r : parsed) {
 
-                Set<String> covered =
+                MatchResult matchResult =
                         findCoveredExpiring(r.getIngredients(), uncovered);
 
-                if (covered.isEmpty()) continue;
+                if (matchResult.expiringIngredients().isEmpty()) continue;
 
                 Recipe saved = save(userId, r);
 
-                // không add lại recipe đã exclude
                 if (saved != null && !excludedRecipeIds.contains(saved.getId())) {
 
                     result.add(
@@ -114,13 +120,15 @@ public class RecipeService {
                                     .ingredients(r.getIngredients())
                                     .steps(r.getSteps())
                                     .fromAI(true)
-                                    .expiringIngredients(new ArrayList<>(covered))
+                                    .expiringIngredients(new ArrayList<>(matchResult.expiringIngredients()))
+                                    .coveredIngredients(new ArrayList<>(matchResult.coveredIngredients()))
                                     .build()
                     );
 
-                    uncovered.removeAll(covered);
+                    uncovered.removeAll(matchResult.expiringIngredients());
 
-                    log.info("AI recipe used: {} -> cover {}", r.getTitle(), covered);
+                    log.info("AI recipe used: {} -> cover {}", r.getTitle(), matchResult.expiringIngredients());
+                    log.info("Uncovered after AI step = {}", uncovered);
                 }
 
                 if (uncovered.isEmpty()) break;
@@ -129,7 +137,7 @@ public class RecipeService {
 
         // ================= FINAL =================
         if (!uncovered.isEmpty()) {
-            log.warn("Still not covered: {}", uncovered);
+            log.warn("Uncovered items = {}", uncovered);
         } else {
             log.info("All expiring items covered");
         }
@@ -141,26 +149,34 @@ public class RecipeService {
 
     // ================= HELPERS =================
 
-    private Set<String> findCoveredExpiring(List<String> ingredients, Set<String> expiring) {
+    private MatchResult findCoveredExpiring(List<String> ingredients, Set<String> expiring) {
 
-        Set<String> covered = new HashSet<>();
+        Set<String> expiringCovered = new HashSet<>();
+        Set<String> actualRecipeIngredients = new HashSet<>();
+
+        if (ingredients == null || ingredients.isEmpty()) {
+            return new MatchResult(expiringCovered, actualRecipeIngredients);
+        }
 
         for (String e : expiring) {
             for (String i : ingredients) {
                 if (isMatch(i, e)) {
-                    covered.add(e);
+                    expiringCovered.add(e);
+                    actualRecipeIngredients.add(i);
                     break;
                 }
             }
         }
 
-        return covered;
+        return new MatchResult(expiringCovered, actualRecipeIngredients);
     }
 
     private boolean isMatch(String a, String b) {
 
         String x = normalize(a);
         String y = normalize(b);
+
+        if (x.isBlank() || y.isBlank()) return false;
 
         if (x.equals(y)) return true;
         if (x.contains(y) || y.contains(x)) return true;
@@ -191,7 +207,12 @@ public class RecipeService {
         }
     }
 
-    private RecipeResponse map(Recipe r, boolean fromAI, List<String> expiring) {
+    private RecipeResponse map(
+            Recipe r,
+            boolean fromAI,
+            List<String> expiringIngredients,
+            List<String> coveredIngredients
+    ) {
 
         return RecipeResponse.builder()
                 .id(r.getId())
@@ -199,7 +220,8 @@ public class RecipeService {
                 .ingredients(split(r.getIngredients()))
                 .steps(splitLines(r.getSteps()))
                 .fromAI(fromAI)
-                .expiringIngredients(expiring)
+                .expiringIngredients(expiringIngredients)
+                .coveredIngredients(coveredIngredients)
                 .build();
     }
 
@@ -244,5 +266,11 @@ public class RecipeService {
 
     private String normalize(String s) {
         return s == null ? "" : s.trim().toLowerCase();
+    }
+
+    private record MatchResult(
+            Set<String> expiringIngredients,
+            Set<String> coveredIngredients
+    ) {
     }
 }

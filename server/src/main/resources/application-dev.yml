@@ -32,7 +32,7 @@ openai:
 
 reminder:
   window-days: 3
-  cron: 0 */2 * * * *   # mỗi 5 phút
+  cron: 0 */15 * * * *   # mỗi 15 phút
   from-email: no-reply@expiry.local
 
 management:
