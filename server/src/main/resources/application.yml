@@ -1,0 +1,19 @@
+spring:
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 15MB
+      max-request-size: 15MB
+
+  jpa:
+    properties:
+      hibernate:
+        format_sql: false
+
+logging:
+  level:
+    org.hibernate: OFF
+
+server:
+  address: 0.0.0.0
+  port: 8080

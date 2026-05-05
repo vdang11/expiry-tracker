@@ -1,0 +1,41 @@
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3307/expiry_tracker?useSSL=false&serverTimezone=UTC&characterEncoding=UTF-8&allowPublicKeyRetrieval=true
+    username: root
+    password: root
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+
+  mail:
+    host: localhost
+    port: 1025
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+jwt:
+  secret: dev-secret-key
+  expiration: 1800000
+
+openai:
+  api-key: ${OPENAI_API_KEY:}
+
+reminder:
+  window-days: 3
+  cron: 0 */15 * * * *   # mỗi 15 phút
+  from-email: no-reply@expiry.local
+
+management:
+  health:
+    mail:
+      enabled: false
