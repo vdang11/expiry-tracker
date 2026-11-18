@@ -24,7 +24,8 @@ spring:
           writetimeout: 5000
 
 jwt:
-  secret: dev-secret-key
+  # HS256 needs >= 32 bytes; override with JWT_SECRET env var
+  secret: ${JWT_SECRET:dev-only-secret-key-change-me-0123456789abcdef}
   expiration: 1800000
 
 openai:

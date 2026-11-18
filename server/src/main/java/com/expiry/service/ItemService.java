@@ -34,6 +34,13 @@ public class ItemService {
     @Transactional
     public ItemResponse saveConfirmedProduct(SaveItemRequest request, Long userId) {
 
+        if (request.getProductName() == null || request.getProductName().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Product name is required"
+            );
+        }
+
         LocalDate normalizedDate = expiryDateNormalizer.normalize(request.getExpiryDate());
 
         if (normalizedDate == null) {
@@ -51,9 +58,9 @@ public class ItemService {
         Item item = new Item();
         item.setProductName(request.getProductName().trim());
         item.setExpiryDate(normalizedDate);
-        item.setConfidence(request.getConfidence());
-        item.setDateType(request.getDateType());
-        item.setDecisionStatus(request.getDecisionStatus());
+        item.setConfidence(request.getConfidence() != null ? request.getConfidence() : 1.0);
+        item.setDateType(defaultIfBlank(request.getDateType(), "CONFIRMED"));
+        item.setDecisionStatus(defaultIfBlank(request.getDecisionStatus(), "CONFIRMED"));
         item.setSuggestedAction(request.getSuggestedAction());
         item.setItemStatus(ACTIVE);
         item.setUser(user);
@@ -247,5 +254,10 @@ public class ItemService {
                 item.getItemStatus(),
                 daysLeft
         );
+    }
+
+    // Manual entries may omit scan metadata; DB columns are NOT NULL
+    private static String defaultIfBlank(String value, String fallback) {
+        return (value == null || value.isBlank()) ? fallback : value;
     }
 }

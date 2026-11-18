@@ -5,9 +5,12 @@ import com.expiry.service.ProductNameNormalizer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,12 +58,29 @@ public class OpenAIClient {
 
     // ================= CORE =================
     private Map<?, ?> callOpenAI(Map<String, Object> body) {
-        return restClient.post()
-                .uri("/responses")
-                .contentType(MediaType.APPLICATION_JSON)
-                .body(body)
-                .retrieve()
-                .body(Map.class);
+        String apiKey = System.getenv("OPENAI_API_KEY");
+
+        if (apiKey == null || apiKey.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "AI service is not configured"
+            );
+        }
+
+        try {
+            return restClient.post()
+                    .uri("/responses")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(body)
+                    .retrieve()
+                    .body(Map.class);
+        } catch (RestClientException e) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "AI service request failed",
+                    e
+            );
+        }
     }
 
     private String extractJson(Map<?, ?> response) {
