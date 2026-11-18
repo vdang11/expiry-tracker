@@ -5,20 +5,26 @@ export default function Notifications() {
   const [list, setList] = useState([]);
 
   useEffect(() => {
-    load();
-  }, []);
+    let alive = true;
 
-  async function load() {
-    const data = await api.getNotifications();
-    setList(Array.isArray(data) ? data : []);
-  }
+    api
+      .getNotifications()
+      .then((data) => {
+        if (alive) setList(Array.isArray(data) ? data : []);
+      })
+      .catch((e) => console.error(e));
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   async function handleRead(id) {
     await api.markNotificationRead(id);
 
     setList(prev =>
       prev.map(n =>
-        n.id === id ? { ...n, isRead: true } : n
+        n.id === id ? { ...n, read: true } : n
       )
     );
   }
@@ -63,13 +69,13 @@ export default function Notifications() {
           className={`flex items-start gap-3 p-4 rounded-xl cursor-pointer
             border transition
             ${
-              n.isRead
+              n.read
                 ? "bg-card border-line"
                 : "bg-[#1f2937] border-[#374151]"
             }`}
         >
           {/* DOT */}
-          {!n.isRead && (
+          {!n.read && (
             <div className="w-2 h-2 bg-blue-400 rounded-full mt-2"></div>
           )}
 

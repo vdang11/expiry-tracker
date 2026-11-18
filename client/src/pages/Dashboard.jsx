@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { api } from "../api/apiClient";
+import { CATEGORY_SHORT_LABEL } from "../constants/categories";
 import {
   getCurrentUser,
   subscribeAuthChange,
@@ -41,23 +42,17 @@ export default function Dashboard() {
     }
   }, [userId, navigate]);
 
-  useEffect(() => {
+  // Back to the first page when search or filter changes
+  const queryKey = `${search}|${filter}`;
+  const [prevQueryKey, setPrevQueryKey] = useState(queryKey);
+  if (queryKey !== prevQueryKey) {
+    setPrevQueryKey(queryKey);
     setPage(0);
-  }, [search, filter]);
+  }
 
   useEffect(() => {
-    if (!userId) {
-      setItems([]);
-      setTotalItems(0);
-      setSummary({
-        expired: 0,
-        soon: 0,
-        ok: 0,
-      });
-      setTotalPages(0);
-      setLoading(false);
-      return;
-    }
+    // Logged out: the effect above redirects to /login
+    if (!userId) return;
 
     let alive = true;
 
@@ -185,6 +180,12 @@ export default function Dashboard() {
                     <div className="text-xs text-muted">
                       {formatDaysLeft(daysLeft)}
                     </div>
+
+                    {it?.category && it.category !== "INGREDIENT" && (
+                      <span className="mt-2 inline-block rounded-full border border-line px-2 py-0.5 text-[11px] text-muted">
+                        {CATEGORY_SHORT_LABEL[it.category] || it.category}
+                      </span>
+                    )}
                   </div>
 
                   <StatusBadge

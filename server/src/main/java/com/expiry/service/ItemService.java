@@ -67,15 +67,7 @@ public class ItemService {
         item.setItemStatus(ACTIVE);
         item.setUser(user);
 
-        // Decide whether this is a cooking ingredient (null if AI unavailable;
-        // ItemClassificationService retries those later)
-        ItemClassifier.Classification classification =
-                itemClassifier.classify(item.getProductName());
-
-        if (classification != null) {
-            item.setCategory(classification.category());
-            item.setIngredientName(classification.ingredientName());
-        }
+        applyCategory(item, request.getCategory());
 
         Item saved = itemRepository.save(item);
 
@@ -246,6 +238,31 @@ public class ItemService {
     }
 
     // ================= MAPPER =================
+    // User's choice wins; the AI decides when there is none, and still
+    // supplies the English ingredient name for user-chosen ingredients
+    private void applyCategory(Item item, ItemCategory chosen) {
+        if (chosen != null && chosen != ItemCategory.INGREDIENT) {
+            item.setCategory(chosen);   // no AI call needed
+            return;
+        }
+
+        // null if AI unavailable; ItemClassificationService retries those later
+        ItemClassifier.Classification classification =
+                itemClassifier.classify(item.getProductName());
+
+        if (chosen == ItemCategory.INGREDIENT) {
+            item.setCategory(ItemCategory.INGREDIENT);
+            String name = classification != null ? classification.ingredientName() : null;
+            item.setIngredientName(name != null ? name : item.getProductName().trim().toLowerCase());
+            return;
+        }
+
+        if (classification != null) {
+            item.setCategory(classification.category());
+            item.setIngredientName(classification.ingredientName());
+        }
+    }
+
     // ================= CHANGE CATEGORY (user fixes AI mistakes) =================
     @Transactional
     public ItemResponse updateCategory(Long id, Long userId, ItemCategory category) {

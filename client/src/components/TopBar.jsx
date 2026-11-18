@@ -23,9 +23,13 @@ export default function TopBar({ search = "", onSearchChange = () => {} }) {
     return unsubscribe;
   }, []);
 
-  useEffect(() => {
+  // Sync the input when the search prop changes (adjust state during render,
+  // not in an effect, to avoid an extra render pass)
+  const [prevSearch, setPrevSearch] = useState(search);
+  if (search !== prevSearch) {
+    setPrevSearch(search);
     setInput(search || "");
-  }, [search]);
+  }
 
   // ===== INITIAL (FROM NAME) =====
   const initial = currentUser?.name

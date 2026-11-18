@@ -3,6 +3,7 @@ package com.expiry.service;
 import com.expiry.config.ReminderProperties;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,14 @@ public class ReminderEmailService {
 
     private final JavaMailSender mailSender;
     private final ReminderProperties reminderProperties;
+
+    @Value("${spring.mail.host:}")
+    private String mailHost;
+
+    /** False when no SMTP host is set (e.g. prod before SES is configured). */
+    public boolean isConfigured() {
+        return mailHost != null && !mailHost.isBlank();
+    }
 
     public void sendReminderEmail(String to, String subject, String htmlBody) {
         try {

@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { api } from "../api/apiClient";
 import "react-datepicker/dist/react-datepicker.css";
 import { getCurrentUser } from "../api/authStorage";
+import { CATEGORY_OPTIONS } from "../constants/categories";
 
 const MAX_IMAGES = 2;
 
@@ -71,6 +72,8 @@ export default function AddItem() {
 
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState("pcs");
+  // "" = let the backend AI decide
+  const [category, setCategory] = useState("");
 
   const [imageFiles, setImageFiles] = useState([]);
   const [imagePreviews, setImagePreviews] = useState([]);
@@ -282,6 +285,7 @@ export default function AddItem() {
       dateType: "CONFIRMED",
       decisionStatus: "CONFIRMED",
       suggestedAction: "KEEP",
+      category: category || null,
     };
 
     try {
@@ -417,7 +421,7 @@ export default function AddItem() {
       )}
 
       <div className="space-y-3 rounded-2xl border border-line bg-card p-4">
-        <Field label="Food name">
+        <Field label="Item name">
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -430,6 +434,25 @@ export default function AddItem() {
               ⚠ Please verify product name
             </p>
           )}
+        </Field>
+
+        <Field label="Category">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="w-full rounded-xl border border-line bg-bg px-3 py-2 text-sm"
+          >
+            <option value="">Auto-detect</option>
+            {CATEGORY_OPTIONS.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+
+          <p className="text-xs text-muted">
+            Only cooking ingredients are used for recipe suggestions.
+          </p>
         </Field>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { api } from "../api/apiClient";
 import toast from "react-hot-toast";
 import ConfirmModal from "../components/ConfirmModal";
+import { CATEGORY_OPTIONS } from "../constants/categories";
 
 export default function ItemDetail() {
   const { id } = useParams();
@@ -205,14 +206,6 @@ export default function ItemDetail() {
     </div>
   );
 }
-
-const CATEGORY_OPTIONS = [
-  { value: "INGREDIENT", label: "Cooking ingredient" },
-  { value: "READY_FOOD", label: "Ready-to-eat food" },
-  { value: "MEDICINE", label: "Medicine" },
-  { value: "COSMETIC", label: "Cosmetic / toiletry" },
-  { value: "OTHER", label: "Other" },
-];
 
 function Row({ label, value }) {
   return (
