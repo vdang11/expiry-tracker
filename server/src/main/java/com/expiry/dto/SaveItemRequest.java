@@ -1,5 +1,6 @@
 package com.expiry.dto;
 
+import com.expiry.entity.ItemCategory;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,4 +17,7 @@ public class SaveItemRequest {
     private String dateType;
     private String decisionStatus;
     private String suggestedAction;
+
+    // Optional: chosen by the user; null = let the AI decide
+    private ItemCategory category;
 }

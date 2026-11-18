@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useOutletContext } from "react-router-dom";
 import { api } from "../api/apiClient";
+import { CATEGORY_SHORT_LABEL } from "../constants/categories";
 import {
   getCurrentUser,
   subscribeAuthChange,
@@ -179,6 +180,12 @@ export default function Dashboard() {
                     <div className="text-xs text-muted">
                       {formatDaysLeft(daysLeft)}
                     </div>
+
+                    {it?.category && it.category !== "INGREDIENT" && (
+                      <span className="mt-2 inline-block rounded-full border border-line px-2 py-0.5 text-[11px] text-muted">
+                        {CATEGORY_SHORT_LABEL[it.category] || it.category}
+                      </span>
+                    )}
                   </div>
 
                   <StatusBadge
