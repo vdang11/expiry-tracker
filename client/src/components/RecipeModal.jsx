@@ -6,18 +6,18 @@ function normalize(value) {
 }
 
 export default function RecipeModal({ recipe, onClose }) {
-  if (!recipe) return null;
-
   /**
    * 🔥 FIX: chỉ highlight ingredient thật
    */
   const highlightSet = useMemo(() => {
     return new Set(
-      (recipe.coveredIngredients || []).map(normalize)
+      (recipe?.coveredIngredients || []).map(normalize)
     );
-  }, [recipe.coveredIngredients]);
+  }, [recipe?.coveredIngredients]);
 
   useEffect(() => {
+    if (!recipe) return;
+
     function handleEsc(e) {
       if (e.key === "Escape") onClose();
     }
@@ -31,7 +31,10 @@ export default function RecipeModal({ recipe, onClose }) {
       window.removeEventListener("keydown", handleEsc);
       document.body.style.overflow = prev;
     };
-  }, [onClose]);
+  }, [recipe, onClose]);
+
+  // Hooks must run on every render, so the early return comes after them
+  if (!recipe) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">

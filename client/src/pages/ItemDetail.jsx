@@ -29,6 +29,10 @@ export default function ItemDetail() {
         }
       } catch (e) {
         console.error(e);
+        // Don't keep showing the previously loaded item
+        if (alive) {
+          setItem(null);
+        }
         toast.error("Failed to load item");
       } finally {
         if (alive) {
