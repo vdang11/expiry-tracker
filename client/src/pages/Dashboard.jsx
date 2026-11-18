@@ -41,23 +41,17 @@ export default function Dashboard() {
     }
   }, [userId, navigate]);
 
-  useEffect(() => {
+  // Back to the first page when search or filter changes
+  const queryKey = `${search}|${filter}`;
+  const [prevQueryKey, setPrevQueryKey] = useState(queryKey);
+  if (queryKey !== prevQueryKey) {
+    setPrevQueryKey(queryKey);
     setPage(0);
-  }, [search, filter]);
+  }
 
   useEffect(() => {
-    if (!userId) {
-      setItems([]);
-      setTotalItems(0);
-      setSummary({
-        expired: 0,
-        soon: 0,
-        ok: 0,
-      });
-      setTotalPages(0);
-      setLoading(false);
-      return;
-    }
+    // Logged out: the effect above redirects to /login
+    if (!userId) return;
 
     let alive = true;
 

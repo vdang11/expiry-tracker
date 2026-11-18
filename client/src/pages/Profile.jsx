@@ -5,13 +5,19 @@ export default function Profile() {
   const [profile, setProfile] = useState(null);
 
   useEffect(() => {
-    load();
-  }, []);
+    let alive = true;
 
-  async function load() {
-    const data = await api.getProfile();
-    setProfile(data);
-  }
+    api
+      .getProfile()
+      .then((data) => {
+        if (alive) setProfile(data);
+      })
+      .catch((e) => console.error(e));
+
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   async function toggleEmail() {
     const next = !profile.emailReminderEnabled;
