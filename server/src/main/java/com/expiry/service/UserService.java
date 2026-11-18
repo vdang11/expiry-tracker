@@ -43,12 +43,12 @@ public class UserService {
     public LoginResponse login(String email, String rawPassword) {
 
         User user = userRepository.findByEmail(email.trim())
-                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+                .orElseThrow(() -> new IllegalArgumentException("Invalid email or password"));
 
         boolean isMatch = passwordEncoder.matches(rawPassword, user.getPassword());
 
         if (!isMatch) {
-            throw new IllegalArgumentException("Invalid password");
+            throw new IllegalArgumentException("Invalid email or password");
         }
 
         String token = jwtService.generateToken(user.getId(), user.getEmail());

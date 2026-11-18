@@ -26,6 +26,7 @@ public class RecipeService {
     private final ObjectMapper objectMapper;
     private final RecipeRepository recipeRepository;
     private final UserRepository userRepository;
+    private final ItemClassificationService itemClassificationService;
 
     private static final int MAX_AI_CALLS = 5;
     private static final int MAX_RECIPES = 15;
@@ -36,6 +37,9 @@ public class RecipeService {
                 excludeIds == null ? List.of() : excludeIds;
 
         log.info("=== GENERATE START === userId={}, excludeIds={}", userId, excludedRecipeIds);
+
+        // Items saved while the AI was down have no category yet
+        itemClassificationService.classifyPending(userId);
 
         RecipeAggregationResult agg =
                 aggregationService.getAggregationResult(userId);
@@ -102,6 +106,8 @@ public class RecipeService {
 
             List<RecipeResponse> parsed = parse(raw);
 
+            int uncoveredBefore = uncovered.size();
+
             for (RecipeResponse r : parsed) {
 
                 MatchResult matchResult =
@@ -132,6 +138,12 @@ public class RecipeService {
                 }
 
                 if (uncovered.isEmpty()) break;
+            }
+
+            // Stop paying for more AI calls when this one made no progress
+            if (uncovered.size() == uncoveredBefore) {
+                log.warn("AI call {} covered nothing new, stop retrying", aiCall);
+                break;
             }
         }
 
@@ -172,21 +184,7 @@ public class RecipeService {
     }
 
     private boolean isMatch(String a, String b) {
-
-        String x = normalize(a);
-        String y = normalize(b);
-
-        if (x.isBlank() || y.isBlank()) return false;
-
-        if (x.equals(y)) return true;
-        if (x.contains(y) || y.contains(x)) return true;
-
-        Set<String> s1 = new HashSet<>(Arrays.asList(x.split(" ")));
-        Set<String> s2 = new HashSet<>(Arrays.asList(y.split(" ")));
-
-        s1.retainAll(s2);
-
-        return !s1.isEmpty();
+        return IngredientMatcher.matches(a, b);
     }
 
     private Recipe save(Long userId, RecipeResponse r) {
@@ -252,7 +250,7 @@ public class RecipeService {
                     new TypeReference<List<RecipeResponse>>() {}
             );
         } catch (Exception e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "AI parse error");
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "AI parse error", e);
         }
     }
 

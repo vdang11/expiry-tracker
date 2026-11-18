@@ -1,4 +1,6 @@
 package com.expiry.dto;
+
+import com.expiry.entity.ItemCategory;
 import lombok.*;
 import com.expiry.service.ExpiryStatus;
 
@@ -16,4 +18,6 @@ public class ItemResponse {
     private ExpiryStatus expiryStatus;
     private String itemStatus;
     private Long daysLeft;
+    private ItemCategory category;      // null = not classified yet
+    private String ingredientName;
 }

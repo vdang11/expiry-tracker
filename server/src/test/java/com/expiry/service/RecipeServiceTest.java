@@ -36,10 +36,14 @@ class RecipeServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private ItemClassificationService itemClassificationService;
+
     @InjectMocks
     private RecipeService recipeService;
 
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    @org.mockito.Spy
+    private ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setup() {
@@ -134,6 +138,13 @@ class RecipeServiceTest {
 
         when(userRepository.findById(userId))
                 .thenReturn(Optional.of(user));
+
+        when(recipeRepository.save(any(Recipe.class)))
+                .thenAnswer(inv -> {
+                    Recipe r = inv.getArgument(0);
+                    r.setId(99L);
+                    return r;
+                });
 
         List<RecipeResponse> result =
                 recipeService.generateRecipes(userId, List.of());

@@ -2,6 +2,7 @@ package com.expiry.service;
 
 import com.expiry.dto.*;
 import com.expiry.entity.Item;
+import com.expiry.entity.ItemCategory;
 import com.expiry.entity.User;
 import com.expiry.repository.ItemRepository;
 import com.expiry.repository.UserRepository;
@@ -29,10 +30,18 @@ public class ItemService {
     private final ExpiryDateNormalizer expiryDateNormalizer;
     private final ExpiryService expiryService;
     private final NotificationService notificationService;
+    private final ItemClassifier itemClassifier;
 
     // ================= SAVE =================
     @Transactional
     public ItemResponse saveConfirmedProduct(SaveItemRequest request, Long userId) {
+
+        if (request.getProductName() == null || request.getProductName().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Product name is required"
+            );
+        }
 
         LocalDate normalizedDate = expiryDateNormalizer.normalize(request.getExpiryDate());
 
@@ -51,12 +60,22 @@ public class ItemService {
         Item item = new Item();
         item.setProductName(request.getProductName().trim());
         item.setExpiryDate(normalizedDate);
-        item.setConfidence(request.getConfidence());
-        item.setDateType(request.getDateType());
-        item.setDecisionStatus(request.getDecisionStatus());
+        item.setConfidence(request.getConfidence() != null ? request.getConfidence() : 1.0);
+        item.setDateType(defaultIfBlank(request.getDateType(), "CONFIRMED"));
+        item.setDecisionStatus(defaultIfBlank(request.getDecisionStatus(), "CONFIRMED"));
         item.setSuggestedAction(request.getSuggestedAction());
         item.setItemStatus(ACTIVE);
         item.setUser(user);
+
+        // Decide whether this is a cooking ingredient (null if AI unavailable;
+        // ItemClassificationService retries those later)
+        ItemClassifier.Classification classification =
+                itemClassifier.classify(item.getProductName());
+
+        if (classification != null) {
+            item.setCategory(classification.category());
+            item.setIngredientName(classification.ingredientName());
+        }
 
         Item saved = itemRepository.save(item);
 
@@ -227,6 +246,28 @@ public class ItemService {
     }
 
     // ================= MAPPER =================
+    // ================= CHANGE CATEGORY (user fixes AI mistakes) =================
+    @Transactional
+    public ItemResponse updateCategory(Long id, Long userId, ItemCategory category) {
+        if (category == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is required");
+        }
+
+        Item item = itemRepository.findByIdAndUser_Id(id, userId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found")
+                );
+
+        item.setCategory(category);
+
+        if (category == ItemCategory.INGREDIENT
+                && (item.getIngredientName() == null || item.getIngredientName().isBlank())) {
+            item.setIngredientName(item.getProductName().trim().toLowerCase());
+        }
+
+        return mapToResponse(itemRepository.save(item));
+    }
+
     private ItemResponse mapToResponse(Item item) {
 
         ExpiryStatus expiryStatus =
@@ -245,7 +286,14 @@ public class ItemService {
                 item.getSuggestedAction(),
                 expiryStatus,
                 item.getItemStatus(),
-                daysLeft
+                daysLeft,
+                item.getCategory(),
+                item.getIngredientName()
         );
+    }
+
+    // Manual entries may omit scan metadata; DB columns are NOT NULL
+    private static String defaultIfBlank(String value, String fallback) {
+        return (value == null || value.isBlank()) ? fallback : value;
     }
 }

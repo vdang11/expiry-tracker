@@ -63,6 +63,15 @@ public class Item {
     @Column(name = "last_reminder_sent_date")
     private LocalDate lastReminderSentDate;
 
+    // null = not classified yet (picked up by ItemClassificationService)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category", length = 20)
+    private ItemCategory category;
+
+    // Common English ingredient name used for recipes, e.g. "Trứng gà" -> "egg"
+    @Column(name = "ingredient_name", length = 100)
+    private String ingredientName;
+
     @PrePersist
     public void onCreate() {
         LocalDateTime now = LocalDateTime.now();

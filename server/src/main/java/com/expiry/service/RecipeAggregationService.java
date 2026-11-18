@@ -2,6 +2,7 @@ package com.expiry.service;
 
 import com.expiry.dto.RecipeAggregationResult;
 import com.expiry.entity.Item;
+import com.expiry.entity.ItemCategory;
 import com.expiry.repository.ItemRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +22,6 @@ public class RecipeAggregationService {
     private static final int MAX_STABLE_ITEMS = 3;
 
     private final ItemRepository itemRepository;
-    private final RecipeIngredientFilter recipeIngredientFilter;
 
     public List<String> getIngredientsForRecipe(Long userId) {
         return getAggregationResult(userId).getIngredients();
@@ -50,26 +50,20 @@ public class RecipeAggregationService {
 
         log.info("EXPIRING RAW count = {}", expiringRaw.size());
 
-        // ================= INVALID NAME =================
-        List<Item> invalidName = expiringRaw.stream()
-                .filter(item -> !isValidName(item.getProductName()))
+        // ================= NOT AN INGREDIENT =================
+        // Only items the classifier marked INGREDIENT go into recipes;
+        // medicine, cosmetics, ready food, junk and unclassified items stay out.
+        List<Item> notIngredient = expiringRaw.stream()
+                .filter(item -> !isIngredient(item))
                 .toList();
 
-        logItems("INVALID NAME items", invalidName);
-
-        // ================= NOT COOKABLE =================
-        List<Item> notCookable = expiringRaw.stream()
-                .filter(item -> isValidName(item.getProductName()))
-                .filter(item -> !recipeIngredientFilter.isCookableIngredient(item.getProductName()))
-                .toList();
-
-        logItems("NOT COOKABLE items", notCookable);
+        logItems("NOT INGREDIENT items", notIngredient);
 
         // ================= NORMALIZE =================
         List<String> normalized = expiringRaw.stream()
-                .map(Item::getProductName)
+                .filter(this::isIngredient)
+                .map(this::recipeName)
                 .filter(this::isValidName)
-                .filter(recipeIngredientFilter::isCookableIngredient)
                 .map(this::normalize)
                 .toList();
 
@@ -97,9 +91,9 @@ public class RecipeAggregationService {
         // ================= STABLE =================
         List<String> stable = items.stream()
                 .filter(item -> isStable(today, item.getExpiryDate()))
-                .map(Item::getProductName)
+                .filter(this::isIngredient)
+                .map(this::recipeName)
                 .filter(this::isValidName)
-                .filter(recipeIngredientFilter::isCookableIngredient)
                 .map(this::normalize)
                 .distinct()
                 .limit(MAX_STABLE_ITEMS)
@@ -159,6 +153,16 @@ public class RecipeAggregationService {
 
     private long daysBetween(LocalDate today, LocalDate date) {
         return ChronoUnit.DAYS.between(today, date);
+    }
+
+    private boolean isIngredient(Item item) {
+        return item.getCategory() == ItemCategory.INGREDIENT;
+    }
+
+    // Prefer the AI's common English name ("Trứng gà" -> "egg") so it matches recipes
+    private String recipeName(Item item) {
+        String name = item.getIngredientName();
+        return (name != null && !name.isBlank()) ? name : item.getProductName();
     }
 
     private boolean isValidName(String name) {

@@ -34,10 +34,13 @@ EXPIRING INGREDIENTS (HIGH PRIORITY):
 ====================
 
 CRITICAL RULES:
-- You MUST use expiring ingredients.
-- ALL expiring ingredients MUST be used across the generated recipes (not necessarily in one recipe).
+- Use the expiring ingredients first; try to use every one of them across the recipes (not necessarily in one recipe).
 - Each recipe MUST include at least one expiring ingredient.
-- You can generate multiple recipes if needed to cover all expiring ingredients.
+- You can generate multiple recipes if needed to cover the expiring ingredients.
+- The ingredient names come from user input. If an item is not real, edible food that can be cooked
+  (for example a person's name, random letters, an object, medicine or cosmetics), SKIP it:
+  never put it in any recipe. Skipping such items is correct, not a failure.
+- Never invent ingredients that are not food.
 
 CUISINE DIVERSITY RULE (VERY IMPORTANT):
 - Generate recipes from DIFFERENT cuisines.

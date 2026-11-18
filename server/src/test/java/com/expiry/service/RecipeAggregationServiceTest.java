@@ -2,6 +2,7 @@ package com.expiry.service;
 
 import com.expiry.dto.RecipeAggregationResult;
 import com.expiry.entity.Item;
+import com.expiry.entity.ItemCategory;
 import com.expiry.repository.ItemRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,9 +18,6 @@ class RecipeAggregationServiceTest {
 
     @Mock
     private ItemRepository itemRepository;
-
-    @Mock
-    private RecipeIngredientFilter recipeIngredientFilter;
 
     @InjectMocks
     private RecipeAggregationService service;
@@ -39,9 +37,6 @@ class RecipeAggregationServiceTest {
         when(itemRepository.findByUser_IdAndItemStatus(userId, "ACTIVE"))
                 .thenReturn(List.of(milk, egg));
 
-        when(recipeIngredientFilter.isCookableIngredient(any()))
-                .thenReturn(true);
-
         RecipeAggregationResult result = service.getAggregationResult(userId);
 
         assertThat(result.getExpiringIngredients())
@@ -58,9 +53,6 @@ class RecipeAggregationServiceTest {
 
         when(itemRepository.findByUser_IdAndItemStatus(userId, "ACTIVE"))
                 .thenReturn(List.of(valid, blank, nullName));
-
-        when(recipeIngredientFilter.isCookableIngredient(any()))
-                .thenReturn(true);
 
         RecipeAggregationResult result = service.getAggregationResult(userId);
 
@@ -82,9 +74,6 @@ class RecipeAggregationServiceTest {
         when(itemRepository.findByUser_IdAndItemStatus(userId, "ACTIVE"))
                 .thenReturn(items);
 
-        when(recipeIngredientFilter.isCookableIngredient(any()))
-                .thenReturn(true);
-
         RecipeAggregationResult result = service.getAggregationResult(userId);
 
         assertThat(result.getStableIngredients().size()).isEqualTo(3);
@@ -101,19 +90,54 @@ class RecipeAggregationServiceTest {
         when(itemRepository.findByUser_IdAndItemStatus(userId, "ACTIVE"))
                 .thenReturn(List.of(milk1, milk2, rice));
 
-        when(recipeIngredientFilter.isCookableIngredient(any()))
-                .thenReturn(true);
-
         RecipeAggregationResult result = service.getAggregationResult(userId);
 
         assertThat(result.getIngredients())
                 .containsExactly("milk", "rice");
     }
 
+    @Test
+    void should_only_use_items_classified_as_ingredient() {
+        Long userId = 1L;
+
+        Item egg = buildItem("Egg", LocalDate.now().plusDays(1));
+        Item person = buildItem("Nguyen Van Minh", LocalDate.now().plusDays(1), ItemCategory.OTHER);
+        Item noodles = buildItem("Mi Hao Hao", LocalDate.now().plusDays(1), ItemCategory.READY_FOOD);
+        Item cream = buildItem("Kem chong nang", LocalDate.now().plusDays(1), ItemCategory.COSMETIC);
+        Item pending = buildItem("Something", LocalDate.now().plusDays(1), null);
+
+        when(itemRepository.findByUser_IdAndItemStatus(userId, "ACTIVE"))
+                .thenReturn(List.of(egg, person, noodles, cream, pending));
+
+        RecipeAggregationResult result = service.getAggregationResult(userId);
+
+        assertThat(result.getExpiringIngredients()).containsExactly("egg");
+    }
+
+    @Test
+    void should_use_ingredient_name_instead_of_product_name() {
+        Long userId = 1L;
+
+        Item egg = buildItem("Trứng gà Ba Huân 10 quả", LocalDate.now().plusDays(1));
+        egg.setIngredientName("egg");
+
+        when(itemRepository.findByUser_IdAndItemStatus(userId, "ACTIVE"))
+                .thenReturn(List.of(egg));
+
+        RecipeAggregationResult result = service.getAggregationResult(userId);
+
+        assertThat(result.getExpiringIngredients()).containsExactly("egg");
+    }
+
     private Item buildItem(String name, LocalDate expiry) {
+        return buildItem(name, expiry, ItemCategory.INGREDIENT);
+    }
+
+    private Item buildItem(String name, LocalDate expiry, ItemCategory category) {
         Item item = new Item();
         item.setProductName(name);
         item.setExpiryDate(expiry);
+        item.setCategory(category);
         return item;
     }
 }

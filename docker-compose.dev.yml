@@ -33,10 +33,23 @@ services:
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       OPENAI_API_KEY: ${OPENAI_API_KEY}
-      JWT_SECRET: ${JWT_SECRET}
+      # Empty JWT_SECRET would override the dev default and block startup
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-key-change-me-0123456789abcdef}
+      SPRING_PROFILES_ACTIVE: dev
+      SPRING_MAIL_HOST: mailhog
+      SPRING_MAIL_PORT: 1025
 
     depends_on:
       - mysql
+      - mailhog
+
+  mailhog:
+    image: mailhog/mailhog
+    container_name: expiry-mailhog-dev
+    restart: always
+    ports:
+      - "1025:1025"
+      - "8025:8025"
 
   frontend:
     image: node:20

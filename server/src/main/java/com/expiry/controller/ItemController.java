@@ -1,5 +1,7 @@
 package com.expiry.controller;
 
+import com.expiry.entity.ItemCategory;
+
 import com.expiry.dto.ItemPageResponse;
 import com.expiry.dto.ItemResponse;
 import com.expiry.dto.ItemSummaryResponse;
@@ -71,6 +73,18 @@ public class ItemController {
     }
 
     // ================= CONSUME =================
+    @PutMapping("/{id}/category")
+    public ItemResponse updateCategory(
+            @PathVariable Long id,
+            @RequestBody UpdateCategoryRequest request
+    ) {
+        Long currentUserId = currentUserProvider.getCurrentUserId();
+        return itemService.updateCategory(id, currentUserId, request.category());
+    }
+
+    public record UpdateCategoryRequest(ItemCategory category) {
+    }
+
     @PutMapping("/{id}/consume")
     public ItemResponse consume(@PathVariable Long id) {
         Long currentUserId = currentUserProvider.getCurrentUserId();
