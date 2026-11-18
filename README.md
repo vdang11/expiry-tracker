@@ -83,8 +83,28 @@ docker/   → Dev environments
 * Strategy:
 
   * Database-first reuse
-  * AI fallback generation
-* Filters non-cookable items
+  * AI fallback generation (stops early when a call adds no new coverage)
+* Only items classified as cooking ingredients are used (see below)
+* Ingredient matching compares whole words (`egg` ≠ `eggplant`, `soy sauce` ≠ `tomato sauce`)
+
+---
+
+## 🏷 Item Classification
+
+Every saved item is classified by AI into one category:
+
+| Category | Used for recipes | Examples |
+| -------- | ---------------- | -------- |
+| `INGREDIENT` | ✅ | Trứng gà → `egg`, Nước mắm → `fish sauce`, Rau muống → `water spinach` |
+| `READY_FOOD` | ❌ | Instant noodles, snacks, soft drinks |
+| `MEDICINE` | ❌ | Panadol |
+| `COSMETIC` | ❌ | Sunscreen, shampoo |
+| `OTHER` | ❌ | Person names, gibberish, objects |
+
+* All categories still get expiry reminders
+* Ingredients also get a common English name, so Vietnamese item names match recipes
+* Users can correct the category on the item detail page
+* Items without a category (saved while AI was unavailable, or created before this feature) are classified automatically on backend startup and before generating recipes
 
 ---
 
@@ -172,10 +192,10 @@ SPRING_DATASOURCE_USERNAME=
 SPRING_DATASOURCE_PASSWORD=
 MYSQL_ROOT_PASSWORD=
 
-# AI
+# AI (optional: without it the app runs, only scan/recipes/classification are disabled)
 OPENAI_API_KEY=
 
-# SECURITY
+# SECURITY (at least 32 characters; required for HS256)
 JWT_SECRET=
 ```
 
@@ -200,7 +220,7 @@ SPRING_DATASOURCE_PASSWORD=
 # AI
 OPENAI_API_KEY=
 
-# SECURITY
+# SECURITY (at least 32 characters, otherwise the backend refuses to start)
 JWT_SECRET=
 ```
 
@@ -247,9 +267,17 @@ docker compose -f docker-compose.dev.yml up mysql
 
 ## 4. Run backend
 
-* Use IntelliJ + EnvFile plugin
-* Load `.env.dev`
-* Run Spring Boot
+* Use IntelliJ + EnvFile plugin, load `.env.dev`, run Spring Boot
+
+or from a terminal (Maven wrapper, no Maven install needed):
+
+```bash
+cd server
+SPRING_PROFILES_ACTIVE=dev OPENAI_API_KEY=sk-... ./mvnw spring-boot:run
+```
+
+* Without `JWT_SECRET`, the `dev` profile uses a built-in dev-only secret
+* Start MailHog to test reminder emails: `docker compose -f docker-compose.dev.yml up mysql mailhog`
 
 ---
 
