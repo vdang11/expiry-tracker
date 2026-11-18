@@ -68,12 +68,16 @@ public class ReminderService {
             String subject = templateBuilder.buildSubject();
             String body = templateBuilder.buildHtmlBody(user.getName(), filteredItems);
 
-            log.info("Sending reminder email to userId={} email={}",
-                    user.getId(), user.getEmail());
-            log.info("Sending email to userId={} email={}",
-                    user.getId(), user.getEmail());
-
-            emailService.sendReminderEmail(user.getEmail(), subject, body);
+            // Email is best effort: a mail failure for one user must not stop
+            // the in-app notification or the reminders of other users
+            if (emailService.isConfigured()) {
+                try {
+                    emailService.sendReminderEmail(user.getEmail(), subject, body);
+                    log.info("Reminder email sent to userId={}", user.getId());
+                } catch (Exception e) {
+                    log.warn("Reminder email failed for userId={}: {}", user.getId(), e.getMessage());
+                }
+            }
 
             notificationService.createNotification(
                     user,

@@ -64,6 +64,7 @@ class ReminderServiceTest {
 
         when(templateBuilder.buildSubject()).thenReturn("Test Subject");
         when(templateBuilder.buildHtmlBody(any(), any())).thenReturn("Test Body");
+        when(emailService.isConfigured()).thenReturn(true);
 
         int result = reminderService.sendDailyReminders();
 
@@ -107,5 +108,60 @@ class ReminderServiceTest {
 
         assertEquals(0, result);
         verify(emailService, never()).sendReminderEmail(any(), any(), any());
+    }
+
+    // Mail failure for one user must not block other users or in-app notifications
+    @Test
+    void shouldKeepGoing_whenEmailFailsForOneUser() {
+
+        Item first = itemFor(1L, "a@gmail.com");
+        Item second = itemFor(2L, "b@gmail.com");
+
+        when(queryService.findExpiredItems()).thenReturn(List.of());
+        when(queryService.findExpiringSoonItems(3)).thenReturn(List.of(first, second));
+        when(templateBuilder.buildSubject()).thenReturn("Subject");
+        when(templateBuilder.buildHtmlBody(any(), any())).thenReturn("Body");
+        when(emailService.isConfigured()).thenReturn(true);
+        doThrow(new IllegalStateException("SMTP down"))
+                .when(emailService).sendReminderEmail(eq("a@gmail.com"), any(), any());
+
+        int result = reminderService.sendDailyReminders();
+
+        assertEquals(2, result);
+        verify(emailService).sendReminderEmail(eq("b@gmail.com"), any(), any());
+        verify(notificationService, times(2)).createNotification(any(), any(), any());
+    }
+
+    // No SMTP configured (prod before SES): still create in-app notifications
+    @Test
+    void shouldCreateNotification_whenMailNotConfigured() {
+
+        Item item = itemFor(1L, "a@gmail.com");
+
+        when(queryService.findExpiredItems()).thenReturn(List.of());
+        when(queryService.findExpiringSoonItems(3)).thenReturn(List.of(item));
+        when(templateBuilder.buildSubject()).thenReturn("Subject");
+        when(templateBuilder.buildHtmlBody(any(), any())).thenReturn("Body");
+        when(emailService.isConfigured()).thenReturn(false);
+
+        int result = reminderService.sendDailyReminders();
+
+        assertEquals(1, result);
+        verify(emailService, never()).sendReminderEmail(any(), any(), any());
+        verify(notificationService).createNotification(any(), any(), any());
+    }
+
+    private Item itemFor(Long userId, String email) {
+        User user = new User();
+        user.setId(userId);
+        user.setEmail(email);
+
+        Item item = new Item();
+        item.setId(userId * 10);
+        item.setUser(user);
+        item.setProductName("Milk");
+        item.setExpiryDate(LocalDate.now());
+        item.setItemStatus("ACTIVE");
+        return item;
     }
 }

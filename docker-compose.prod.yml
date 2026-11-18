@@ -22,19 +22,31 @@ services:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/expiry_tracker?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_PROFILES_ACTIVE: prod
       OPENAI_API_KEY: ${OPENAI_API_KEY}
       JWT_SECRET: ${JWT_SECRET}
+      # Frontend below is served from http://localhost
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost}
+      # Optional SMTP (e.g. AWS SES); without it reminders stay in-app only
+      SES_SMTP_HOST: ${SES_SMTP_HOST:-}
+      SES_SMTP_PORT: ${SES_SMTP_PORT:-587}
+      SES_SMTP_USERNAME: ${SES_SMTP_USERNAME:-}
+      SES_SMTP_PASSWORD: ${SES_SMTP_PASSWORD:-}
+      REMINDER_FROM_EMAIL: ${REMINDER_FROM_EMAIL:-no-reply@expiry.local}
     depends_on:
       - mysql
 
   frontend:
-    build: ./client
+    build:
+      context: ./client
+      args:
+        # Called by the browser, so it must be reachable from the host,
+        # not the docker service name
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:8080}
     container_name: expiry-frontend
     restart: always
     ports:
       - "80:80"
-    environment:
-      - VITE_API_URL=http://backend:8080  
     depends_on:
       - backend
 
