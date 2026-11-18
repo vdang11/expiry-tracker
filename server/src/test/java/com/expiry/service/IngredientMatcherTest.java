@@ -27,7 +27,13 @@ class IngredientMatcherTest {
             "noodles, noodle",
             "peaches, peach",
             "hummus, hummus",
-            "sữa tươi, sữa"
+            "sữa tươi, sữa",
+            "olive oil, oil",
+            "red onion, onion",
+            "water spinach, water spinach",
+            "peanut butter, creamy peanut butter",
+            "coconut milk, coconut milk",
+            "fish sauce, fish sauce"
     })
     void should_match(String a, String b) {
         assertThat(IngredientMatcher.matches(a, b)).isTrue();
@@ -49,7 +55,25 @@ class IngredientMatcherTest {
             "chicken breast, chicken thigh",
             "red apple, red onion",
             "milk, ''",
-            "fresh, milk"
+            "fresh, milk",
+            "spinach, water spinach",
+            "butter, peanut butter",
+            "milk, coconut milk",
+            "milk, soy milk",
+            "cream, ice cream",
+            "cream, sour cream",
+            "sauce, fish sauce",
+            "egg, egg noodles",
+            "rice, rice vinegar",
+            "rice, rice noodles",
+            "rice, rice paper",
+            "chicken, chicken stock",
+            "beef, beef broth",
+            "tomato, tomato paste",
+            "onion, green onion",
+            "bean, green beans",
+            "potato, sweet potato",
+            "cheese, cream cheese"
     })
     void should_not_match(String a, String b) {
         assertThat(IngredientMatcher.matches(a, b)).isFalse();
