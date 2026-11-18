@@ -38,7 +38,8 @@ Monorepo structure:
 ```text
 client/   → React + Vite + Tailwind
 server/   → Spring Boot (API + AI logic)
-docker/   → Dev environments
+tools/    → Dev tools (scan accuracy check)
+.github/  → CI (GitHub Actions)
 ```
 
 ---
@@ -318,6 +319,29 @@ SPRING_PROFILES_ACTIVE=prod mvn spring-boot:run
 docker compose -f docker-compose.dev.yml up
 ```
 
+Production-like stack on your machine (prod profile, frontend on http://localhost):
+
+```bash
+JWT_SECRET=<32+ chars> MYSQL_ROOT_PASSWORD=<pw> OPENAI_API_KEY=<key> \
+  docker compose -f docker-compose.prod.yml up --build
+```
+
+* The frontend is built against `VITE_API_URL` (default `http://localhost:8080`), not the CloudFront backend
+* Email reminders need `SES_SMTP_*`; without them reminders are in-app only
+
+---
+
+# ✅ CI
+
+GitHub Actions (`.github/workflows/ci.yml`) runs on every push to `main`/`develop` and every pull request:
+
+* Backend: `./mvnw -B verify` (unit tests, no database or OpenAI key needed)
+* Frontend: `npm ci`, `npm run lint`, `npm run build`
+
+# 📸 Scan accuracy
+
+`tools/scan-eval` runs a folder of real product photos through the scan API and reports correct / flagged / silently wrong results. See `tools/scan-eval/README.md`.
+
 ---
 
 # 🔐 Security
@@ -378,7 +402,8 @@ docker logs expiry-backend
 
 * Role-based authorization (ADMIN / USER)
 * AWS SES for production email
-* CI/CD pipeline
+* CD (automatic deploy to AWS); CI is in place
+* Store quantity, unit and purchase date (the form asks for them but they are not saved yet)
 * Rate limiting
 * Custom domain
 
