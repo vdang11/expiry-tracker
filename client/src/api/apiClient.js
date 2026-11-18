@@ -66,6 +66,9 @@ export const api = {
   consumeItem: (id) =>
     httpClient.put(`${BASE_URL}/api/products/${id}/consume`),
 
+  updateItemCategory: (id, category) =>
+    httpClient.put(`${BASE_URL}/api/products/${id}/category`, { category }),
+
   // ===== RECIPES =====
   async generateRecipes(excludeRecipeIds = []) {
     const data = await httpClient.post(

@@ -36,6 +36,9 @@ class RecipeServiceTest {
     @Mock
     private UserRepository userRepository;
 
+    @Mock
+    private ItemClassificationService itemClassificationService;
+
     @InjectMocks
     private RecipeService recipeService;
 

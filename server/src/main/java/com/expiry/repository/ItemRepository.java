@@ -85,5 +85,10 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
 
     // ===== FOR AGGREGATION =====
     List<Item> findByUser_IdAndItemStatus(Long userId, String itemStatus);
+
+    // ===== FOR CLASSIFICATION =====
+    List<Item> findTop50ByCategoryIsNullOrderByIdAsc();
+
+    List<Item> findByUser_IdAndCategoryIsNull(Long userId);
 }
 

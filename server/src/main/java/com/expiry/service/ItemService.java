@@ -2,6 +2,7 @@ package com.expiry.service;
 
 import com.expiry.dto.*;
 import com.expiry.entity.Item;
+import com.expiry.entity.ItemCategory;
 import com.expiry.entity.User;
 import com.expiry.repository.ItemRepository;
 import com.expiry.repository.UserRepository;
@@ -29,6 +30,7 @@ public class ItemService {
     private final ExpiryDateNormalizer expiryDateNormalizer;
     private final ExpiryService expiryService;
     private final NotificationService notificationService;
+    private final ItemClassifier itemClassifier;
 
     // ================= SAVE =================
     @Transactional
@@ -64,6 +66,16 @@ public class ItemService {
         item.setSuggestedAction(request.getSuggestedAction());
         item.setItemStatus(ACTIVE);
         item.setUser(user);
+
+        // Decide whether this is a cooking ingredient (null if AI unavailable;
+        // ItemClassificationService retries those later)
+        ItemClassifier.Classification classification =
+                itemClassifier.classify(item.getProductName());
+
+        if (classification != null) {
+            item.setCategory(classification.category());
+            item.setIngredientName(classification.ingredientName());
+        }
 
         Item saved = itemRepository.save(item);
 
@@ -234,6 +246,28 @@ public class ItemService {
     }
 
     // ================= MAPPER =================
+    // ================= CHANGE CATEGORY (user fixes AI mistakes) =================
+    @Transactional
+    public ItemResponse updateCategory(Long id, Long userId, ItemCategory category) {
+        if (category == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Category is required");
+        }
+
+        Item item = itemRepository.findByIdAndUser_Id(id, userId)
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "Item not found")
+                );
+
+        item.setCategory(category);
+
+        if (category == ItemCategory.INGREDIENT
+                && (item.getIngredientName() == null || item.getIngredientName().isBlank())) {
+            item.setIngredientName(item.getProductName().trim().toLowerCase());
+        }
+
+        return mapToResponse(itemRepository.save(item));
+    }
+
     private ItemResponse mapToResponse(Item item) {
 
         ExpiryStatus expiryStatus =
@@ -252,7 +286,9 @@ public class ItemService {
                 item.getSuggestedAction(),
                 expiryStatus,
                 item.getItemStatus(),
-                daysLeft
+                daysLeft,
+                item.getCategory(),
+                item.getIngredientName()
         );
     }
 

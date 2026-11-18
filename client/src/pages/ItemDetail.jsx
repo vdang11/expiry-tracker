@@ -14,6 +14,7 @@ export default function ItemDetail() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [consuming, setConsuming] = useState(false);
+  const [savingCategory, setSavingCategory] = useState(false);
 
   const daysLeft = calculateDaysLeft(item?.expiryDate);
 
@@ -45,6 +46,23 @@ export default function ItemDetail() {
       alive = false;
     };
   }, [id]);
+
+  async function handleCategoryChange(e) {
+    const category = e.target.value;
+    if (!item || savingCategory || category === item.category) return;
+
+    try {
+      setSavingCategory(true);
+      const updated = await api.updateItemCategory(item.id, category);
+      setItem(updated);
+      toast.success("Category updated");
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update category");
+    } finally {
+      setSavingCategory(false);
+    }
+  }
 
   function handleDeleteClick() {
     if (deleting) return;
@@ -126,6 +144,33 @@ export default function ItemDetail() {
         <Row label="Suggested action" value={item.suggestedAction} />
         <Row label="Item status" value={item.itemStatus} />
 
+        <div className="flex items-center justify-between gap-4 text-sm">
+          <span className="text-muted">Category</span>
+          <select
+            value={item.category || ""}
+            onChange={handleCategoryChange}
+            disabled={savingCategory}
+            className="rounded-xl border border-line bg-bg px-3 py-1.5 text-sm text-white disabled:opacity-50"
+          >
+            {!item.category && <option value="">Not classified yet</option>}
+            {CATEGORY_OPTIONS.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {item.category === "INGREDIENT" && item.ingredientName && (
+          <Row label="Used in recipes as" value={item.ingredientName} />
+        )}
+
+        {item.category && item.category !== "INGREDIENT" && (
+          <p className="text-xs text-muted">
+            Not used for recipe suggestions. Expiry reminders still apply.
+          </p>
+        )}
+
         <div className="flex gap-2 pt-2">
           <StatusBadge expiryStatus={item.expiryStatus} />
           <ItemStatusBadge itemStatus={item.itemStatus} />
@@ -160,6 +205,14 @@ export default function ItemDetail() {
     </div>
   );
 }
+
+const CATEGORY_OPTIONS = [
+  { value: "INGREDIENT", label: "Cooking ingredient" },
+  { value: "READY_FOOD", label: "Ready-to-eat food" },
+  { value: "MEDICINE", label: "Medicine" },
+  { value: "COSMETIC", label: "Cosmetic / toiletry" },
+  { value: "OTHER", label: "Other" },
+];
 
 function Row({ label, value }) {
   return (

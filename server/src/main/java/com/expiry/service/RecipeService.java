@@ -26,6 +26,7 @@ public class RecipeService {
     private final ObjectMapper objectMapper;
     private final RecipeRepository recipeRepository;
     private final UserRepository userRepository;
+    private final ItemClassificationService itemClassificationService;
 
     private static final int MAX_AI_CALLS = 5;
     private static final int MAX_RECIPES = 15;
@@ -36,6 +37,9 @@ public class RecipeService {
                 excludeIds == null ? List.of() : excludeIds;
 
         log.info("=== GENERATE START === userId={}, excludeIds={}", userId, excludedRecipeIds);
+
+        // Items saved while the AI was down have no category yet
+        itemClassificationService.classifyPending(userId);
 
         RecipeAggregationResult agg =
                 aggregationService.getAggregationResult(userId);
